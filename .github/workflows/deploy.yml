@@ -1,0 +1,84 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy CDK Infrastructure
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install CDK dependencies
+        working-directory: infrastructure
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: CDK Synth
+        working-directory: infrastructure
+        run: |
+          python app.py
+      
+      - name: CDK Diff
+        working-directory: infrastructure
+        run: cdk diff --all || true
+      
+      - name: CDK Deploy
+        if: github.ref == 'refs/heads/main'
+        working-directory: infrastructure
+        run: cdk deploy --all --require-approval never
+        continue-on-error: true  # For POC, don't fail if some resources need manual setup
+
+  deploy-lambda:
+    name: Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Package and deploy Lambda functions
+        run: |
+          # TODO: Implement Lambda deployment
+          echo "Lambda deployment pending implementation"
+        continue-on-error: true
+

@@ -1,0 +1,68 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint-infrastructure:
+    name: Lint CDK Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff black
+      
+      - name: Lint Python code
+        working-directory: infrastructure
+        run: |
+          ruff check . || true
+          black --check . || true
+      
+      - name: CDK Synth
+        working-directory: infrastructure
+        run: python app.py
+        continue-on-error: true
+
+  validate-documentation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for required docs
+        run: |
+          required_docs=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "docs/iac-tool-evaluation.md"
+          )
+          
+          for doc in "${required_docs[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "❌ Missing required documentation: $doc"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All required documentation present"
+

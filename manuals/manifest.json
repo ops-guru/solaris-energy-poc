@@ -1,0 +1,218 @@
+{
+  "generated": "2025-10-31T11:09:00Z",
+  "version": "1.0",
+  "total_documents": 13,
+  "total_size_mb": 90.3,
+  "source": "Publicly available documentation from manufacturer and third-party sources",
+  "notes": [
+    "Downloaded for AWS AgentCore POC operator assistant knowledge base",
+    "One document (Hartford BESS Fire Hazards) failed to download due to HTTP/2 connection issues",
+    "Documents will be uploaded to S3 bucket for processing by LangGraph RAG pipeline"
+  ],
+  "documents": [
+    {
+      "filename": "Solaris_SMT60_Technical_Specs.pdf",
+      "path": "SMT60-Taurus60/technical-specs/",
+      "turbine_model": "SMT60/Taurus 60",
+      "manufacturer": "Solaris Energy Infrastructure",
+      "document_type": "Technical Specifications",
+      "source_url": "https://irp.cdn-website.com/f809ccf0/files/uploaded/Solaris_5.7MW_Turbine_Power_-_Tech_Specs-243257d2.pdf",
+      "size_bytes": 1075073,
+      "size_mb": 1.03,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["smt60", "taurus60", "technical-specs", "solaris"]
+    },
+    {
+      "filename": "Solar_Taurus60_Spec_Sheet.pdf",
+      "path": "SMT60-Taurus60/reference/",
+      "turbine_model": "SMT60/Taurus 60",
+      "manufacturer": "Solar Turbines",
+      "document_type": "Reference",
+      "source_url": "https://www.aaronequipment.com/equipmentattachments/11729003_solar_taurus_60_gas_turbine_generator.pdf",
+      "size_bytes": 3636156,
+      "size_mb": 3.47,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["smt60", "taurus60", "reference", "solar-turbines"]
+    },
+    {
+      "filename": "Solaris_SMT130_Technical_Specs.pdf",
+      "path": "SMT130-Titan130/technical-specs/",
+      "turbine_model": "SMT130/Titan 130",
+      "manufacturer": "Solaris Energy Infrastructure",
+      "document_type": "Technical Specifications",
+      "source_url": "https://irp.cdn-website.com/f809ccf0/files/uploaded/Solaris_16.5MW_Turbine_Power_-_Tech_Specs.pdf",
+      "size_bytes": 1517779,
+      "size_mb": 1.45,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["smt130", "titan130", "technical-specs", "solaris"]
+    },
+    {
+      "filename": "Solaris_TM2500_Technical_Specs.pdf",
+      "path": "TM2500-LM2500/technical-specs/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "Solaris Energy Infrastructure",
+      "document_type": "Technical Specifications",
+      "source_url": "https://irp.cdn-website.com/f809ccf0/files/uploaded/Solaris_35MW_Turbine_Power_-_Tech_Specs-83f9c921.pdf",
+      "size_bytes": 12480619,
+      "size_mb": 11.91,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "technical-specs", "solaris"]
+    },
+    {
+      "filename": "LM2500G4_Datasheet.pdf",
+      "path": "TM2500-LM2500/technical-specs/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "GE Aerospace",
+      "document_type": "Technical Specifications",
+      "source_url": "https://www.geaerospace.com/sites/default/files/datasheet-lm2500plusg4.pdf",
+      "size_bytes": 583437,
+      "size_mb": 0.56,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "technical-specs", "ge"]
+    },
+    {
+      "filename": "LM2500_Training_Manual.pdf",
+      "path": "TM2500-LM2500/operational/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "GE Vernova/MSCN7",
+      "document_type": "Operational/Training",
+      "source_url": "https://mscn7training.com/wp-content/uploads/2021/01/MSC01A_1211_B5_LM2500-Gas-Turbine_-r5b_rg.pdf",
+      "size_bytes": 53137466,
+      "size_mb": 50.69,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "operational", "training", "ge"]
+    },
+    {
+      "filename": "GER-4250_LM2500G4_Technical_Reference.pdf",
+      "path": "TM2500-LM2500/reference/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "GE Vernova",
+      "document_type": "Technical Reference",
+      "source_url": "https://www.gevernova.com/content/dam/gepower-new/global/en_US/downloads/gas-new-site/resources/reference/ger-4250-ge-lm2500-g4-aero-gas-turbine-marine-industrial-applications.pdf",
+      "size_bytes": 896206,
+      "size_mb": 0.85,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "reference", "ge"]
+    },
+    {
+      "filename": "LM2500_Training_Course_Info.pdf",
+      "path": "TM2500-LM2500/reference/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "VBR Turbine Partners",
+      "document_type": "Reference/Training",
+      "source_url": "https://vbr-turbinepartners.com/wp-content/uploads/2023/03/Training-course-LM2500-Elst-42608777-April-2023.pdf",
+      "size_bytes": 241552,
+      "size_mb": 0.23,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "reference", "training"]
+    },
+    {
+      "filename": "LM2500_Pocket_Guide.pdf",
+      "path": "TM2500-LM2500/reference/",
+      "turbine_model": "TM2500/LM2500+G4",
+      "manufacturer": "Gasturbinesystems.com",
+      "document_type": "Reference",
+      "source_url": "https://gasturbinesystems.files.wordpress.com/2018/06/lm2500-pocketguide.pdf",
+      "size_bytes": 7342547,
+      "size_mb": 7.0,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["tm2500", "lm2500", "reference", "pocket-guide"]
+    },
+    {
+      "filename": "SEI_Investor_Presentation_Aug2025.pdf",
+      "path": "general/reference/",
+      "turbine_model": "General",
+      "manufacturer": "Solaris Energy Infrastructure",
+      "document_type": "Reference/Business",
+      "source_url": "https://ir.solaris-energy.com/~/media/Files/S/Solaris-IR/reports-and-presentations/sei-investor-presentation-august-2025.pdf",
+      "size_bytes": 5928202,
+      "size_mb": 5.66,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["general", "solaris", "business"]
+    },
+    {
+      "filename": "SEI_Investor_Presentation_May2025.pdf",
+      "path": "general/reference/",
+      "turbine_model": "General",
+      "manufacturer": "Solaris Energy Infrastructure",
+      "document_type": "Reference/Business",
+      "source_url": "https://ir.solaris-energy.com/~/media/Files/S/Solaris-IR/reports-and-presentations/sei-investor-presentation-may-2025.pdf",
+      "size_bytes": 5280139,
+      "size_mb": 5.04,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["general", "solaris", "business"]
+    },
+    {
+      "filename": "Solar_Turbines_Product_Handbook.pdf",
+      "path": "general/reference/",
+      "turbine_model": "General/Solar Turbines",
+      "manufacturer": "Solar Turbines",
+      "document_type": "Reference/Handbook",
+      "source_url": "https://mcatradeandlearn.com/wp-content/uploads/2020/11/Solar-Turbine-Produt-Handbook-for-Power-Generation.pdf",
+      "size_bytes": 3840598,
+      "size_mb": 3.66,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["general", "solar-turbines", "handbook"]
+    },
+    {
+      "filename": "BESS_Incidents_Risk_Management_BakerRisk.pdf",
+      "path": "BESS/safety/",
+      "turbine_model": "BESS (Battery Energy Storage System)",
+      "manufacturer": "BakerRisk",
+      "document_type": "Safety",
+      "source_url": "https://www.bakerrisk.com/wp-content/uploads/2024/03/BESS-White-Papers-1-7-Combined.pdf",
+      "size_bytes": 2626978,
+      "size_mb": 2.51,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "success",
+      "tags": ["bess", "safety", "battery"]
+    },
+    {
+      "filename": "Fire_Hazards_BESS_Hartford.pdf",
+      "path": "BESS/safety/",
+      "turbine_model": "BESS (Battery Energy Storage System)",
+      "manufacturer": "Hartford Insurance",
+      "document_type": "Safety",
+      "source_url": "https://assets.thehartford.com/image/upload/fire_hazards_of_battery_energy_storage_systems.pdf",
+      "size_bytes": 0,
+      "size_mb": 0,
+      "acquired": "2025-10-31T11:09:00Z",
+      "status": "failed",
+      "error": "Connection timeout / HTTP/2 stream error after 3 retry attempts",
+      "tags": ["bess", "safety", "battery"]
+    }
+  ],
+  "statistics": {
+    "by_turbine_model": {
+      "SMT60/Taurus 60": 2,
+      "SMT130/Titan 130": 1,
+      "TM2500/LM2500+G4": 6,
+      "General": 3,
+      "BESS": 1
+    },
+    "by_document_type": {
+      "Technical Specifications": 4,
+      "Reference": 5,
+      "Operational/Training": 1,
+      "Safety": 1,
+      "Reference/Business": 2,
+      "Reference/Handbook": 1
+    },
+    "by_status": {
+      "success": 13,
+      "failed": 1
+    }
+  }
+}

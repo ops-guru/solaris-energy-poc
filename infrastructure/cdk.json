@@ -1,0 +1,33 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "requirements*.txt",
+      "source.bat",
+      "**/__init__.py",
+      "**/__pycache__",
+      "**/*.pyc"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/aws-lambda:recognizeVersionProps": true,
+    "@aws-cdk/aws-lambda:grantLogGroup": true,
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+    "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
+    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
+    "@aws-cdk/aws-kms:aliasNameRef": true
+  }
+}
+
