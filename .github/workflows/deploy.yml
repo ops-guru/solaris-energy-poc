@@ -60,7 +60,7 @@ jobs:
         continue-on-error: true
       
       - name: CDK Deploy (if AWS configured)
-        if: github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN != ''
+        if: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN != '' }}
         working-directory: infrastructure
         run: |
           echo "Deploying infrastructure to AWS..."
