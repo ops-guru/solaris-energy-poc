@@ -9,6 +9,22 @@ This guide walks you through setting up AWS authentication for the GitHub Action
 - Repository name: `solaris-energy-poc`
 - Organization: `ops-guru`
 
+## Quick Setup (Automated)
+
+For fastest setup, use the provided bootstrap script:
+
+```bash
+# Run bootstrap script with your AWS profile and GitHub details
+./scripts/bootstrap-aws-github-setup.sh [AWS_PROFILE] [GITHUB_ORG] [GITHUB_REPO]
+
+# Example
+./scripts/bootstrap-aws-github-setup.sh mavenlink-functions ops-guru solaris-energy-poc
+```
+
+This script automates all steps below. For manual setup, continue reading.
+
+---
+
 ## Step 1: Create GitHub OIDC Provider in AWS
 
 First, we need to configure AWS to trust GitHub Actions:
