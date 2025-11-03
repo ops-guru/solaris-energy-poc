@@ -7,7 +7,7 @@
 #   ./scripts/bootstrap-aws-github-setup.sh [AWS_PROFILE] [GITHUB_ORG] [GITHUB_REPO]
 #
 # Example:
-#   ./scripts/bootstrap-aws-github-setup.sh og-scada ops-guru solaris-energy-poc
+#   ./scripts/bootstrap-aws-github-setup.sh mavenlink-functions ops-guru solaris-energy-poc
 #
 
 set -euo pipefail

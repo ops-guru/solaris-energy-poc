@@ -39,6 +39,8 @@ solaris-energy-poc/
 - Node.js 18+ (for frontend)
 - AWS CDK CLI
 
+**AWS Profile**: This project uses the `mavenlink-functions` AWS profile (Account: 720119760662)
+
 ### Local Development
 
 ```bash
@@ -52,6 +54,7 @@ pip install -r requirements.txt
 cdk synth
 
 # Deploy to AWS (when ready)
+# Note: Uses mavenlink-functions profile by default
 cdk deploy --all
 ```
 

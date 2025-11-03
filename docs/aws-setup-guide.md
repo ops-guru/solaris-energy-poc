@@ -17,7 +17,7 @@ For fastest setup, use the provided bootstrap script:
 # Run bootstrap script with your AWS profile and GitHub details
 ./scripts/bootstrap-aws-github-setup.sh [AWS_PROFILE] [GITHUB_ORG] [GITHUB_REPO]
 
-# Example
+# Example (using the correct AWS profile for this project)
 ./scripts/bootstrap-aws-github-setup.sh mavenlink-functions ops-guru solaris-energy-poc
 ```
 

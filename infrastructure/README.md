@@ -22,6 +22,9 @@ app.py
 - CDK CLI: `npm install -g aws-cdk`
 - AWS_PROFILE set or credentials configured
 
+**Note**: This project uses the `mavenlink-functions` AWS profile by default.  
+To use a different profile, set `export AWS_PROFILE=<your-profile>` before running CDK commands.
+
 ## Setup
 
 ```bash
