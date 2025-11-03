@@ -46,7 +46,7 @@ jobs:
           echo "✅ CDK synthesis successful"
       
       - name: Configure AWS credentials (if available)
-        if: secrets.AWS_ROLE_ARN != ''
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -54,13 +54,13 @@ jobs:
         continue-on-error: true
       
       - name: CDK Diff (if AWS configured)
-        if: secrets.AWS_ROLE_ARN != ''
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
         working-directory: infrastructure
         run: cdk diff --all || true
         continue-on-error: true
       
       - name: CDK Deploy (if AWS configured)
-        if: github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN != ''
+        if: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN != '' }}
         working-directory: infrastructure
         run: |
           echo "Deploying infrastructure to AWS..."
@@ -68,7 +68,7 @@ jobs:
         continue-on-error: true
       
       - name: AWS Setup Reminder
-        if: secrets.AWS_ROLE_ARN == ''
+        if: ${{ secrets.AWS_ROLE_ARN == '' }}
         run: |
           echo "⚠️  AWS_ROLE_ARN secret not configured"
           echo "📝 See docs/aws-setup-guide.md for setup instructions"
@@ -82,7 +82,7 @@ jobs:
     name: Deploy Lambda Functions
     runs-on: ubuntu-latest
     needs: deploy-infrastructure
-    if: secrets.AWS_ROLE_ARN != ''
+    if: ${{ secrets.AWS_ROLE_ARN != '' }}
     
     steps:
       - name: Checkout code
