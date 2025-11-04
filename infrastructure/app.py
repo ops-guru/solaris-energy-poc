@@ -5,9 +5,10 @@ from solaris_poc.network_stack import NetworkStack
 from solaris_poc.storage_stack import StorageStack
 from solaris_poc.vector_store_stack import VectorStoreStack
 from solaris_poc.compute_stack import ComputeStack
-from solaris_poc.bedrock_stack import BedrockStack
 from solaris_poc.api_stack import ApiStack
-from solaris_poc.observability_stack import ObservabilityStack
+# TODO: Implement remaining stacks
+# from solaris_poc.bedrock_stack import BedrockStack
+# from solaris_poc.observability_stack import ObservabilityStack
 
 
 app = cdk.App()
@@ -48,9 +49,16 @@ compute_stack = ComputeStack(
     env=env,
 )
 
+# API Gateway stack
+api_stack = ApiStack(
+    app,
+    "ApiStack",
+    agent_workflow_lambda=compute_stack.agent_workflow_lambda,
+    env=env,
+)
+
 # TODO: Implement remaining stacks
 # bedrock_stack = BedrockStack(...)
-# api_stack = ApiStack(...)
 # observability_stack = ObservabilityStack(...)
 
 # Add tags to all resources
