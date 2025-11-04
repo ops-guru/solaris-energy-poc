@@ -15,22 +15,28 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         className={`max-w-3xl rounded-lg shadow-sm p-4 ${
           isUser
             ? "bg-solaris-primary text-white"
-            : "bg-white border border-solaris-gray-medium text-solaris-dark"
+            : "bg-white border border-solaris-gray-medium text-gray-900"
         }`}
       >
-        <div className="whitespace-pre-wrap">{message.content}</div>
+        <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
 
         {/* Citations */}
         {message.citations && message.citations.length > 0 && (
           <div className="mt-4 pt-4 border-t border-opacity-20 border-current">
-            <p className="text-xs font-semibold mb-2 opacity-90">Sources:</p>
+            <p className={`text-xs font-semibold mb-2 ${
+              isUser ? "text-white text-opacity-95" : "text-gray-800"
+            }`}>Sources:</p>
             <ul className="space-y-1">
               {message.citations.map((citation, idx) => (
-                <li key={idx} className="text-xs opacity-80">
+                <li key={idx} className={`text-xs ${
+                  isUser ? "text-white text-opacity-90" : "text-gray-700"
+                }`}>
                   {idx + 1}. {citation.source}
                   {citation.page && ` (Page ${citation.page})`}
                   {citation.relevance_score !== undefined && (
-                    <span className="ml-2 opacity-60">
+                    <span className={`ml-2 ${
+                      isUser ? "text-white text-opacity-75" : "text-gray-600"
+                    }`}>
                       ({Math.round(citation.relevance_score * 100)}% match)
                     </span>
                   )}
@@ -41,7 +47,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
 
         {/* Metadata */}
-        <div className="mt-3 pt-3 border-t border-opacity-20 border-current flex items-center justify-between text-xs opacity-70">
+        <div className={`mt-3 pt-3 border-t border-opacity-20 border-current flex items-center justify-between text-xs ${
+          isUser ? "text-white text-opacity-90" : "text-gray-600"
+        }`}>
           <div>
             {message.turbine_model && (
               <span className="mr-3">

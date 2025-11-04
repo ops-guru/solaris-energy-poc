@@ -34,7 +34,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
           placeholder="Ask a question about turbine operation, troubleshooting, or procedures..."
           disabled={disabled}
           rows={1}
-          className="w-full px-4 py-3 border border-solaris-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-solaris-primary focus:border-transparent resize-none disabled:bg-solaris-gray-light disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 border border-solaris-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-solaris-primary focus:border-transparent resize-none disabled:bg-solaris-gray-light disabled:cursor-not-allowed text-gray-900"
           style={{
             minHeight: "48px",
             maxHeight: "120px",

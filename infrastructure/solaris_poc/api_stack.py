@@ -65,6 +65,12 @@ class ApiStack(cdk.Stack):
             ),
         )
         usage_plan.add_api_key(api_key)
+        
+        # Associate usage plan with API stage (required for API key validation)
+        usage_plan.add_api_stage(
+            stage=self.api.deployment_stage,
+            api=self.api,
+        )
 
         # Lambda integration for agent workflow
         agent_integration = apigateway.LambdaIntegration(
@@ -106,6 +112,18 @@ class ApiStack(cdk.Stack):
             "GET",
             agent_integration,
             api_key_required=True,
+            method_responses=[
+                apigateway.MethodResponse(
+                    status_code="200",
+                    response_parameters={
+                        "method.response.header."
+                        "Access-Control-Allow-Origin": True
+                    },
+                ),
+                apigateway.MethodResponse(status_code="400"),
+                apigateway.MethodResponse(status_code="404"),
+                apigateway.MethodResponse(status_code="500"),
+            ],
         )
 
         # Delete session endpoint: DELETE /chat/{session_id}
@@ -113,6 +131,17 @@ class ApiStack(cdk.Stack):
             "DELETE",
             agent_integration,
             api_key_required=True,
+            method_responses=[
+                apigateway.MethodResponse(
+                    status_code="200",
+                    response_parameters={
+                        "method.response.header."
+                        "Access-Control-Allow-Origin": True
+                    },
+                ),
+                apigateway.MethodResponse(status_code="400"),
+                apigateway.MethodResponse(status_code="500"),
+            ],
         )
 
         # Outputs

@@ -1,7 +1,6 @@
 """Vector store stack - OpenSearch for RAG."""
 import aws_cdk as cdk
 from aws_cdk import aws_opensearchservice as opensearch
-from aws_cdk import aws_iam as iam
 from aws_cdk import aws_ec2 as ec2
 from constructs import Construct
 
@@ -42,7 +41,13 @@ class VectorStoreStack(cdk.Stack):
             enforce_https=True,
             vpc=vpc,
             vpc_subnets=[
-                ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+                ec2.SubnetSelection(
+                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                    # Select only first AZ subnet since zone awareness disabled
+                    availability_zones=[vpc.availability_zones[0]]
+                    if vpc
+                    else None,
+                )
             ],
             security_groups=[security_group] if security_group else None,
             fine_grained_access_control=opensearch.AdvancedSecurityOptions(

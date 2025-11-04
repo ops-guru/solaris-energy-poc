@@ -128,20 +128,20 @@ def search_documents(
                             }
                         },
                         # Keyword search (BM25)
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": ["content^2", "title"],
-                                "type": "best_fields",
-                                "fuzziness": "AUTO",
-                            }
-                        },
+                                            {
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["text^2", "source"],
+                            "type": "best_fields",
+                            "fuzziness": "AUTO",
+                        }
+                    },
                     ],
                     "must": [],
                     "minimum_should_match": 1,
                 }
             },
-            "_source": ["content", "metadata", "source", "page", "title"],
+            "_source": ["text", "metadata", "source", "turbine_model", "document_type"],
         }
         
         # Add metadata filters
@@ -161,10 +161,11 @@ def search_documents(
         for hit in response.get("hits", {}).get("hits", []):
             source = hit["_source"]
             results.append({
-                "content": source.get("content", ""),
+                "content": source.get("text", ""),
                 "source": source.get("source", "Unknown"),
-                "page": source.get("metadata", {}).get("page"),
-                "title": source.get("title", ""),
+                "page": source.get("metadata", {}).get("chunk_index"),
+                "turbine_model": source.get("turbine_model"),
+                "document_type": source.get("document_type"),
                 "score": hit.get("_score", 0.0),
                 "metadata": source.get("metadata", {}),
             })

@@ -165,17 +165,17 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-solaris-dark">
+              <h1 className="text-2xl font-bold text-gray-900">
                 Solaris Energy Operator Assistant
               </h1>
-              <p className="text-sm text-solaris-gray-dark mt-1">
+              <p className="text-sm text-gray-700 mt-1">
                 Troubleshooting & Documentation Support
               </p>
             </div>
             {sessionId && (
               <button
                 onClick={handleClearSession}
-                className="px-4 py-2 text-sm text-solaris-gray-dark hover:text-solaris-dark border border-solaris-gray-medium rounded-lg hover:bg-solaris-gray-light transition-colors"
+                className="px-4 py-2 text-sm text-gray-800 hover:text-gray-900 border border-solaris-gray-medium rounded-lg hover:bg-solaris-gray-light transition-colors font-medium"
               >
                 Clear Session
               </button>

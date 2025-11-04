@@ -1,375 +1,250 @@
 """
-Agent Workflow Lambda Handler
+Agent Workflow Lambda Handler with RAG
 
-This Lambda orchestrates the multi-step reasoning workflow using LangGraph
-to process operator queries and provide troubleshooting assistance.
+Performs retrieval-augmented generation using OpenSearch vector store.
 """
 import json
 import os
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from datetime import datetime
 
-from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
-from pydantic import BaseModel, Field
+# Import OpenSearch and LLM helpers
+try:
+    from opensearch_helper import (
+        get_opensearch_client,
+        search_documents,
+    )
+    OPENSEARCH_AVAILABLE = True
+except ImportError:
+    OPENSEARCH_AVAILABLE = False
+    logging.warning("OpenSearch helper not available")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # Environment variables
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", "")
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "turbine-documents")
-OPENSEARCH_MASTER_USER = os.environ.get("OPENSEARCH_MASTER_USER", "admin")
-OPENSEARCH_MASTER_PASSWORD = os.environ.get("OPENSEARCH_MASTER_PASSWORD", "")
-BEDROCK_REGION = os.environ.get("AWS_REGION", "us-east-1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "amazon.titan-embed-text-v1")
+OPENSEARCH_USER = os.environ.get("OPENSEARCH_MASTER_USER", "admin")
+OPENSEARCH_PASSWORD = os.environ.get("OPENSEARCH_MASTER_PASSWORD", "")
+EMBEDDING_MODEL = os.environ.get(
+    "EMBEDDING_MODEL", "amazon.titan-embed-text-v1"
+)
+LLM_MODEL = os.environ.get(
+    "LLM_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0"
+)
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 
-class Message(BaseModel):
-    """Message in conversation history."""
-    role: str = Field(description="Message role: user, assistant, or system")
-    content: str = Field(description="Message content")
-    timestamp: Optional[str] = Field(default=None, description="Message timestamp")
-
-
-class AgentState(BaseModel):
-    """State schema for LangGraph workflow."""
-    session_id: str = Field(description="Session identifier")
-    query: str = Field(description="User's original query")
-    messages: List[Message] = Field(default_factory=list, description="Conversation history")
-    transformed_query: Optional[str] = Field(default=None, description="Enhanced/transformed query")
-    turbine_model: Optional[str] = Field(default=None, description="Detected turbine model")
-    retrieved_documents: List[Dict[str, Any]] = Field(default_factory=list, description="Retrieved RAG documents")
-    reasoning_context: Optional[str] = Field(default=None, description="Reasoning context for LLM")
-    llm_response: Optional[str] = Field(default=None, description="Raw LLM response")
-    validated_response: Optional[str] = Field(default=None, description="Validated and formatted response")
-    citations: List[Dict[str, Any]] = Field(default_factory=list, description="Source citations")
-    confidence_score: Optional[float] = Field(default=None, description="Confidence score (0-1)")
-    error: Optional[str] = Field(default=None, description="Error message if any")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-
-def query_transformer_node(state: AgentState) -> AgentState:
-    """
-    Transform and enhance the user query.
+def invoke_bedrock_llm(
+    prompt: str, context: str = "", conversation_history: List[Dict] = None
+) -> str:
+    """Invoke Bedrock LLM with prompt and context."""
+    import boto3
     
-    - Detect turbine model (SMT60, SMT130, TM2500)
-    - Expand query with context
-    - Extract intent and key terms
-    """
-    logger.info(f"[QueryTransformer] Processing query: {state.query}")
+    bedrock_runtime = boto3.client("bedrock-runtime", region_name=AWS_REGION)
     
-    query = state.query.lower()
+    # Build messages with context
+    system_message = (
+        "You are an expert assistant for gas turbine operations and "
+        "troubleshooting. Use the provided documentation context to answer "
+        "questions accurately. Always cite your sources. If the context "
+        "doesn't contain relevant information, say so clearly."
+    )
     
-    # Detect turbine model
-    turbine_model = None
-    if "smt60" in query or "taurus 60" in query or "taurus60" in query:
-        turbine_model = "SMT60"
-    elif "smt130" in query or "titan 130" in query or "titan130" in query:
-        turbine_model = "SMT130"
-    elif "tm2500" in query or "lm2500" in query or "lm2500+g4" in query:
-        turbine_model = "TM2500"
+    messages = []
     
-    # Enhance query with context from conversation history
-    context_parts = [state.query]
-    if state.messages:
-        # Include last assistant message for context
-        last_assistant = next(
-            (msg for msg in reversed(state.messages) if msg.role == "assistant"),
-            None
-        )
-        if last_assistant:
-            context_parts.append(f"Previous context: {last_assistant.content[:200]}")
-    
-    transformed_query = " ".join(context_parts)
-    
-    state.transformed_query = transformed_query
-    state.turbine_model = turbine_model
-    
-    logger.info(f"[QueryTransformer] Turbine model: {turbine_model}, Transformed query: {transformed_query[:100]}")
-    
-    return state
-
-
-def knowledge_retriever_node(state: AgentState) -> AgentState:
-    """
-    Retrieve relevant documents from OpenSearch using RAG.
-    
-    - Vector similarity search
-    - Metadata filtering by turbine model
-    - Hybrid search (semantic + keyword)
-    - Result ranking and formatting
-    """
-    logger.info(f"[KnowledgeRetriever] Retrieving documents for: {state.transformed_query}")
-    
-    try:
-        from opensearch_helper import get_opensearch_client, search_documents
-        
-        opensearch_client = get_opensearch_client(
-            endpoint=OPENSEARCH_ENDPOINT,
-            username=OPENSEARCH_MASTER_USER,
-            password=OPENSEARCH_MASTER_PASSWORD,
-        )
-        
-        # Build query with metadata filters
-        filters = {}
-        if state.turbine_model:
-            filters["turbine_model"] = state.turbine_model
-        
-        # Perform hybrid search
-        results = search_documents(
-            client=opensearch_client,
-            index=OPENSEARCH_INDEX,
-            query=state.transformed_query or state.query,
-            filters=filters,
-            top_k=5,
-            embedding_model=EMBEDDING_MODEL,
-            region=BEDROCK_REGION,
-        )
-        
-        state.retrieved_documents = results
-        
-        logger.info(f"[KnowledgeRetriever] Retrieved {len(results)} documents")
-        
-    except Exception as e:
-        logger.error(f"[KnowledgeRetriever] Error: {str(e)}", exc_info=True)
-        state.error = f"Document retrieval error: {str(e)}"
-    
-    return state
-
-
-def reasoning_engine_node(state: AgentState) -> AgentState:
-    """
-    Generate response using LLM with retrieved context.
-    
-    - Format retrieved documents as context
-    - Invoke Bedrock LLM (Claude/Nova)
-    - Parse structured response
-    """
-    logger.info(f"[ReasoningEngine] Generating LLM response")
-    
-    try:
-        from llm_clients import get_bedrock_client, invoke_llm
-        
-        bedrock_client = get_bedrock_client(region=BEDROCK_REGION)
-        
-        # Format context from retrieved documents
-        context_parts = []
-        citations = []
-        
-        for i, doc in enumerate(state.retrieved_documents[:5], 1):
-            context_parts.append(f"[Document {i}]\n{doc.get('content', '')[:1000]}")
-            citations.append({
-                "source": doc.get("source", "Unknown"),
-                "page": doc.get("page"),
-                "relevance_score": doc.get("score", 0.0),
+    # Add conversation history if available
+    if conversation_history:
+        for msg in conversation_history[-5:]:  # Last 5 messages for context
+            role = "user" if msg.get("role") == "user" else "assistant"
+            messages.append({
+                "role": role,
+                "content": msg.get("content", "")
             })
-        
-        context = "\n\n".join(context_parts)
-        
-        # Build prompt
-        system_prompt = """You are a helpful assistant for gas turbine operators. 
-Use the provided documentation to answer questions accurately and cite sources.
-If information is not available, say so clearly."""
-        
-        user_prompt = f"""Query: {state.query}
-
-Relevant Documentation:
-{context}
-
-Please provide a clear, actionable answer based on the documentation above. Include specific steps or procedures when available."""
-
-        # Invoke LLM
-        response = invoke_llm(
-            client=bedrock_client,
-            model_id=LLM_MODEL,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            conversation_history=state.messages,
+    
+    # Add current prompt with context
+    user_content = prompt
+    if context:
+        user_content = (
+            f"Context from documentation:\n{context}\n\n"
+            f"User question: {prompt}\n\n"
+            "Please answer the question using the context above. "
+            "If the context is relevant, cite the sources. If not, "
+            "acknowledge that you don't have that information in the "
+            "provided documentation."
+        )
+    
+    messages.append({
+        "role": "user",
+        "content": user_content
+    })
+    
+    # Invoke Claude
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 2048,
+        "system": system_message,
+        "messages": messages
+    }
+    
+    try:
+        response = bedrock_runtime.invoke_model(
+            modelId=LLM_MODEL,
+            body=json.dumps(body),
+            contentType="application/json",
+            accept="application/json"
         )
         
-        state.llm_response = response
-        state.reasoning_context = context
-        state.citations = citations
-        
-        logger.info(f"[ReasoningEngine] Generated response ({len(response)} chars)")
-        
+        response_body = json.loads(response["body"].read())
+        return response_body["content"][0]["text"]
     except Exception as e:
-        logger.error(f"[ReasoningEngine] Error: {str(e)}", exc_info=True)
-        state.error = f"LLM generation error: {str(e)}"
-    
-    return state
-
-
-def response_validator_node(state: AgentState) -> AgentState:
-    """
-    Validate and format the LLM response.
-    
-    - Check for unsafe content (via Bedrock Guardrails if available)
-    - Format response with citations
-    - Calculate confidence score
-    - Ensure citations are included
-    """
-    logger.info(f"[ResponseValidator] Validating response")
-    
-    if not state.llm_response:
-        state.validated_response = "I apologize, but I couldn't generate a response. Please try rephrasing your question."
-        state.confidence_score = 0.0
-        return state
-    
-    # Format response with citations
-    validated = state.llm_response
-    
-    # Add citations if not already included
-    if state.citations and "Source:" not in validated:
-        citation_text = "\n\n**Sources:**\n"
-        for i, cit in enumerate(state.citations[:3], 1):
-            citation_text += f"{i}. {cit.get('source', 'Unknown')}"
-            if cit.get('page'):
-                citation_text += f" (Page {cit['page']})"
-            citation_text += "\n"
-        validated += citation_text
-    
-    # Simple confidence scoring based on retrieved documents
-    if state.retrieved_documents:
-        avg_score = sum(doc.get("score", 0.0) for doc in state.retrieved_documents) / len(state.retrieved_documents)
-        state.confidence_score = min(1.0, avg_score * 2.0)  # Normalize to 0-1
-    else:
-        state.confidence_score = 0.3  # Low confidence if no documents
-    
-    state.validated_response = validated
-    
-    logger.info(f"[ResponseValidator] Validation complete, confidence: {state.confidence_score:.2f}")
-    
-    return state
-
-
-def data_fetcher_node(state: AgentState) -> AgentState:
-    """
-    Fetch real-time data from Timestream (stubbed for now).
-    
-    This is a placeholder for future integration with Timestream
-    for real-time turbine metrics.
-    """
-    logger.info(f"[DataFetcher] Data fetching (stubbed)")
-    
-    # TODO: Implement Timestream integration
-    # For now, just log that this would fetch real-time data
-    state.metadata["timestream_enabled"] = False
-    state.metadata["data_fetch_status"] = "stubbed"
-    
-    return state
-
-
-# Build LangGraph workflow
-def create_workflow() -> StateGraph:
-    """Create and compile the LangGraph workflow."""
-    workflow = StateGraph(AgentState)
-    
-    # Add nodes
-    workflow.add_node("query_transformer", query_transformer_node)
-    workflow.add_node("knowledge_retriever", knowledge_retriever_node)
-    workflow.add_node("reasoning_engine", reasoning_engine_node)
-    workflow.add_node("response_validator", response_validator_node)
-    workflow.add_node("data_fetcher", data_fetcher_node)  # Optional, can be skipped
-    
-    # Define edges
-    workflow.set_entry_point("query_transformer")
-    workflow.add_edge("query_transformer", "knowledge_retriever")
-    workflow.add_edge("knowledge_retriever", "reasoning_engine")
-    workflow.add_edge("reasoning_engine", "response_validator")
-    workflow.add_edge("response_validator", "data_fetcher")
-    workflow.add_edge("data_fetcher", END)
-    
-    return workflow.compile()
-
-
-# Initialize workflow (cached)
-_workflow = None
-
-
-def get_workflow():
-    """Get or create the compiled workflow."""
-    global _workflow
-    if _workflow is None:
-        _workflow = create_workflow()
-    return _workflow
+        logger.error(f"Bedrock LLM error: {e}", exc_info=True)
+        return f"I encountered an error generating a response: {str(e)}"
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Lambda handler for agent workflow.
-    
-    Expected event:
-    {
-        "session_id": "session-123",
-        "query": "How do I troubleshoot low oil pressure on SMT60?",
-        "messages": [{"role": "user", "content": "..."}, ...]
-    }
+    Agent workflow handler with RAG retrieval.
     """
     try:
         logger.info(f"Received event: {json.dumps(event)}")
         
-        # Parse input
-        session_id = event.get("session_id", f"session-{datetime.now().isoformat()}")
-        query = event.get("query", "")
-        messages = [
-            Message(**msg) if isinstance(msg, dict) else msg
-            for msg in event.get("messages", [])
-        ]
+        # Handle API Gateway proxy integration
+        if "httpMethod" in event or "requestContext" in event:
+            body_str = event.get("body", "{}")
+            if isinstance(body_str, str):
+                body = json.loads(body_str)
+            else:
+                body = body_str
+            
+            session_id = body.get("session_id", f"session-{datetime.now().isoformat()}")
+            query = body.get("query", "")
+            messages = body.get("messages", [])
+        else:
+            # Direct invocation format
+            session_id = event.get("session_id", f"session-{datetime.now().isoformat()}")
+            query = event.get("query", "")
+            messages = event.get("messages", [])
         
         if not query:
             return {
                 "statusCode": 400,
+                "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"error": "Query is required"}),
             }
         
-        # Add user message to history
-        messages.append(Message(
-            role="user",
-            content=query,
-            timestamp=datetime.now().isoformat(),
-        ))
+        # Step 1: Perform RAG retrieval from OpenSearch
+        retrieved_docs = []
+        citations = []
+        turbine_model = None
         
-        # Initialize state
-        initial_state = AgentState(
-            session_id=session_id,
-            query=query,
-            messages=messages,
-        )
+        if OPENSEARCH_AVAILABLE and OPENSEARCH_ENDPOINT:
+            try:
+                # Connect to OpenSearch
+                opensearch_client = get_opensearch_client(
+                    OPENSEARCH_ENDPOINT,
+                    OPENSEARCH_USER,
+                    OPENSEARCH_PASSWORD,
+                    AWS_REGION
+                )
+                
+                # Extract turbine model from query if mentioned
+                query_lower = query.lower()
+                if "smt60" in query_lower or "smt 60" in query_lower:
+                    turbine_model = "SMT60"
+                elif "smt130" in query_lower or "smt 130" in query_lower:
+                    turbine_model = "SMT130"
+                elif "tm2500" in query_lower:
+                    turbine_model = "TM2500"
+                
+                # Build filters if turbine model detected
+                filters = {"turbine_model": turbine_model} if turbine_model else None
+                
+                # Search OpenSearch
+                retrieved_docs = search_documents(
+                    opensearch_client,
+                    OPENSEARCH_INDEX,
+                    query,
+                    filters=filters,
+                    top_k=5,
+                    embedding_model=EMBEDDING_MODEL,
+                    region=AWS_REGION
+                )
+                
+                # Build citations from results
+                for doc in retrieved_docs:
+                    citations.append({
+                        "source": doc.get("source", "Unknown"),
+                        "page": doc.get("page"),
+                        "excerpt": doc.get("content", "")[:200] + "...",
+                        "relevance_score": doc.get("score", 0.0)
+                    })
+                
+                logger.info(
+                    f"Retrieved {len(retrieved_docs)} docs from OpenSearch"
+                )
+                
+            except Exception as e:
+                logger.warning(f"OpenSearch retrieval error: {e}", exc_info=True)
+                # Continue without RAG if OpenSearch fails
         
-        # Execute workflow
-        workflow = get_workflow()
-        final_state = workflow.invoke(initial_state)
+        # Step 2: Build context from retrieved documents
+        context = ""
+        if retrieved_docs:
+            context_parts = []
+            for i, doc in enumerate(retrieved_docs, 1):
+                source = doc.get("source", "Unknown")
+                content = doc.get("content", "")
+                context_parts.append(f"[Document {i} - Source: {source}]\n{content}\n")
+            context = "\n".join(context_parts)
+        else:
+            context = "No relevant documentation found in the knowledge base."
+            logger.info("No documents retrieved from OpenSearch")
         
-        # Add assistant response to messages
-        if final_state.validated_response:
-            final_state.messages.append(Message(
-                role="assistant",
-                content=final_state.validated_response,
-                timestamp=datetime.now().isoformat(),
-            ))
+        # Step 3: Generate LLM response with context
+        response_text = invoke_bedrock_llm(query, context, messages)
         
-        # Return response
+        # Step 4: Calculate confidence score based on retrieval quality
+        confidence_score = 0.8 if retrieved_docs else 0.5
+        if retrieved_docs:
+            avg_score = sum(
+                d.get("score", 0.0) for d in retrieved_docs
+            ) / len(retrieved_docs)
+            # Scale score to 0.6-0.95
+            confidence_score = min(0.95, 0.6 + (avg_score / 10))
+        
+        # Step 5: Build response
+        response_data = {
+            "session_id": session_id,
+            "response": response_text,
+            "citations": citations,
+            "confidence_score": confidence_score,
+            "turbine_model": turbine_model,
+            "messages": messages + [
+                {"role": "user", "content": query, "timestamp": datetime.now().isoformat()},
+                {"role": "assistant", "content": response_text, "timestamp": datetime.now().isoformat()}
+            ],
+            "error": None,
+        }
+        
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "session_id": final_state.session_id,
-                "response": final_state.validated_response,
-                "citations": final_state.citations,
-                "confidence_score": final_state.confidence_score,
-                "turbine_model": final_state.turbine_model,
-                "messages": [msg.dict() for msg in final_state.messages],
-                "error": final_state.error,
-            }),
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps(response_data),
         }
         
     except Exception as e:
         logger.error(f"Lambda handler error: {str(e)}", exc_info=True)
         return {
             "statusCode": 500,
-            "body": json.dumps({"error": str(e)}),
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({
+                "error": str(e),
+                "session_id": event.get("session_id", "unknown"),
+                "response": "I encountered an error processing your request.",
+                "citations": [],
+                "confidence_score": 0.0,
+            }),
         }
