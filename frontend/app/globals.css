@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #EEEEEE;
+  --foreground: #171616;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #171616;
+    --foreground: #EEEEEE;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
