@@ -1,0 +1,194 @@
+"""
+LLM Client Helper Module
+
+Provides utilities for invoking AWS Bedrock LLMs (Claude, Nova, etc.).
+"""
+import json
+import logging
+from typing import Any, Dict, List, Optional
+import boto3
+
+logger = logging.getLogger(__name__)
+
+
+def get_bedrock_client(region: str = "us-east-1"):
+    """
+    Create and return a Bedrock runtime client.
+    
+    Args:
+        region: AWS region
+    
+    Returns:
+        boto3 Bedrock runtime client
+    """
+    return boto3.client("bedrock-runtime", region_name=region)
+
+
+def format_conversation_history(messages: List[Any]) -> List[Dict[str, str]]:
+    """
+    Format conversation history for Bedrock API.
+    
+    Args:
+        messages: List of Message objects or dicts
+    
+    Returns:
+        List of formatted message dicts for Bedrock
+    """
+    formatted = []
+    for msg in messages:
+        if hasattr(msg, "role") and hasattr(msg, "content"):
+            # Pydantic model
+            formatted.append({
+                "role": msg.role,
+                "content": [{"text": msg.content}],
+            })
+        elif isinstance(msg, dict):
+            # Dict
+            formatted.append({
+                "role": msg.get("role", "user"),
+                "content": [{"text": msg.get("content", "")}],
+            })
+    return formatted
+
+
+def invoke_llm(
+    client: Any,
+    model_id: str,
+    system_prompt: str,
+    user_prompt: str,
+    conversation_history: Optional[List[Any]] = None,
+    max_tokens: int = 2048,
+    temperature: float = 0.7,
+) -> str:
+    """
+    Invoke Bedrock LLM model (Claude, Nova, etc.).
+    
+    Args:
+        client: Bedrock runtime client
+        model_id: Model identifier (e.g., "anthropic.claude-3-5-sonnet-20241022-v2:0")
+        system_prompt: System prompt
+        user_prompt: User prompt
+        conversation_history: Optional conversation history
+        max_tokens: Maximum tokens to generate
+        temperature: Sampling temperature
+    
+    Returns:
+        Generated response text
+    """
+    try:
+        # Format messages
+        messages = []
+        
+        # Add conversation history (excluding last user message if it's the current prompt)
+        if conversation_history:
+            for msg in conversation_history:
+                if hasattr(msg, "role") and hasattr(msg, "content"):
+                    messages.append({
+                        "role": msg.role if msg.role != "system" else "user",
+                        "content": [{"text": msg.content}],
+                    })
+        
+        # Add current user prompt
+        messages.append({
+            "role": "user",
+            "content": [{"text": user_prompt}],
+        })
+        
+        # Determine API format based on model
+        if "claude" in model_id.lower():
+            # Claude 3.x format
+            body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "system": system_prompt,
+                "messages": messages,
+            }
+        elif "nova" in model_id.lower() or "amazon.titan" in model_id.lower():
+            # Titan/Nova format
+            # For simplicity, combine system and user prompts
+            combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+            body = {
+                "inputText": combined_prompt,
+                "textGenerationConfig": {
+                    "maxTokenCount": max_tokens,
+                    "temperature": temperature,
+                },
+            }
+        else:
+            # Default to Claude format
+            body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "system": system_prompt,
+                "messages": messages,
+            }
+        
+        # Invoke model
+        response = client.invoke_model(
+            modelId=model_id,
+            body=json.dumps(body),
+            contentType="application/json",
+            accept="application/json",
+        )
+        
+        # Parse response
+        response_body = json.loads(response["body"].read())
+        
+        # Extract text based on model type
+        if "claude" in model_id.lower():
+            # Claude returns content array
+            content = response_body.get("content", [])
+            if content and isinstance(content, list):
+                text_parts = [
+                    item.get("text", "")
+                    for item in content
+                    if item.get("type") == "text"
+                ]
+                return "".join(text_parts)
+            return ""
+        elif "nova" in model_id.lower() or "amazon.titan" in model_id.lower():
+            # Titan/Nova returns results array
+            results = response_body.get("results", [])
+            if results:
+                return results[0].get("outputText", "")
+            return ""
+        else:
+            # Fallback
+            return response_body.get("content", [{}])[0].get("text", "") if response_body.get("content") else ""
+        
+    except Exception as e:
+        logger.error(f"LLM invocation error: {str(e)}", exc_info=True)
+        raise
+
+
+def switch_llm_model(
+    current_model: str,
+    target_model: str,
+) -> str:
+    """
+    Switch between LLM models (Claude, Nova, Grok).
+    
+    Args:
+        current_model: Current model ID
+        target_model: Target model ID
+    
+    Returns:
+        New model ID to use
+    """
+    # Model mapping
+    model_map = {
+        "claude": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "nova": "amazon.nova-pro-v1:0",
+        "grok": "grok-beta",  # Placeholder until Grok API available
+    }
+    
+    target_lower = target_model.lower()
+    if target_lower in model_map:
+        new_model = model_map[target_lower]
+        logger.info(f"Switching from {current_model} to {new_model}")
+        return new_model
+    
+    logger.warning(f"Unknown target model: {target_model}, keeping {current_model}")
+    return current_model
