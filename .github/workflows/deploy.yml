@@ -15,6 +15,9 @@ jobs:
     name: Deploy CDK Infrastructure
     runs-on: ubuntu-latest
     
+    outputs:
+      aws_configured: ${{ steps.check-aws.outputs.aws_configured }}
+    
     permissions:
       id-token: write
       contents: read
@@ -45,30 +48,39 @@ jobs:
           python app.py
           echo "✅ CDK synthesis successful"
       
-      - name: Configure AWS credentials (if available)
-        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+      - name: Check AWS Role ARN
+        id: check-aws
+        run: |
+          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            echo "aws_configured=true" >> $GITHUB_OUTPUT
+            echo "✅ AWS_ROLE_ARN secret is configured"
+          else
+            echo "aws_configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️  AWS_ROLE_ARN secret not configured"
+          fi
+      
+      - name: Configure AWS credentials
+        if: steps.check-aws.outputs.aws_configured == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-        continue-on-error: true
       
       - name: CDK Diff (if AWS configured)
-        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        if: steps.check-aws.outputs.aws_configured == 'true'
         working-directory: infrastructure
         run: cdk diff --all || true
         continue-on-error: true
       
       - name: CDK Deploy (if AWS configured)
-        if: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN != '' }}
+        if: github.ref == 'refs/heads/main' && steps.check-aws.outputs.aws_configured == 'true'
         working-directory: infrastructure
         run: |
           echo "Deploying infrastructure to AWS..."
           cdk deploy --all --require-approval never
-        continue-on-error: true
       
       - name: AWS Setup Reminder
-        if: ${{ secrets.AWS_ROLE_ARN == '' }}
+        if: steps.check-aws.outputs.aws_configured == 'false'
         run: |
           echo "⚠️  AWS_ROLE_ARN secret not configured"
           echo "📝 See docs/aws-setup-guide.md for setup instructions"
@@ -82,7 +94,11 @@ jobs:
     name: Deploy Lambda Functions
     runs-on: ubuntu-latest
     needs: deploy-infrastructure
-    if: ${{ secrets.AWS_ROLE_ARN != '' }}
+    if: needs.deploy-infrastructure.outputs.aws_configured == 'true'
+    
+    permissions:
+      id-token: write
+      contents: read
     
     steps:
       - name: Checkout code
