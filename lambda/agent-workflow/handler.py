@@ -30,7 +30,7 @@ EMBEDDING_MODEL = os.environ.get(
     "EMBEDDING_MODEL", "amazon.titan-embed-text-v1"
 )
 LLM_MODEL = os.environ.get(
-    "LLM_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    "LLM_MODEL", "amazon.nova-pro-v1:0"
 )
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -43,7 +43,7 @@ def invoke_bedrock_llm(
     
     bedrock_runtime = boto3.client("bedrock-runtime", region_name=AWS_REGION)
     
-    # Build messages with context
+    # Build prompt for Nova Pro (uses inputText format, not messages)
     system_message = (
         "You are an expert assistant for gas turbine operations and "
         "troubleshooting. Use the provided documentation context to answer "
@@ -51,18 +51,17 @@ def invoke_bedrock_llm(
         "doesn't contain relevant information, say so clearly."
     )
     
-    messages = []
-    
-    # Add conversation history if available
+    # Build conversation context from history if available
+    conversation_context = ""
     if conversation_history:
+        conversation_parts = []
         for msg in conversation_history[-5:]:  # Last 5 messages for context
-            role = "user" if msg.get("role") == "user" else "assistant"
-            messages.append({
-                "role": role,
-                "content": msg.get("content", "")
-            })
+            role = "User" if msg.get("role") == "user" else "Assistant"
+            content = msg.get("content", "")
+            conversation_parts.append(f"{role}: {content}")
+        conversation_context = "\n\nPrevious conversation:\n" + "\n".join(conversation_parts)
     
-    # Add current prompt with context
+    # Build user prompt with context
     user_content = prompt
     if context:
         user_content = (
@@ -74,17 +73,17 @@ def invoke_bedrock_llm(
             "provided documentation."
         )
     
-    messages.append({
-        "role": "user",
-        "content": user_content
-    })
+    # Combine system message, conversation history, and user content for Nova Pro
+    combined_prompt = f"{system_message}{conversation_context}\n\n{user_content}"
     
-    # Invoke Claude
+    # Nova Pro uses inputText format
     body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 2048,
-        "system": system_message,
-        "messages": messages
+        "inputText": combined_prompt,
+        "textGenerationConfig": {
+            "maxTokenCount": 2048,
+            "temperature": 0.7,
+            "topP": 0.9,
+        }
     }
     
     try:
@@ -96,7 +95,11 @@ def invoke_bedrock_llm(
         )
         
         response_body = json.loads(response["body"].read())
-        return response_body["content"][0]["text"]
+        # Nova Pro returns results array
+        results = response_body.get("results", [])
+        if results and len(results) > 0:
+            return results[0].get("outputText", "")
+        return ""
     except Exception as e:
         logger.error(f"Bedrock LLM error: {e}", exc_info=True)
         return f"I encountered an error generating a response: {str(e)}"

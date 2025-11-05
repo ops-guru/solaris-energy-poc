@@ -223,7 +223,7 @@ class ComputeStack(cdk.Stack):
                 "OPENSEARCH_ENDPOINT": opensearch_endpoint or "",
                 "OPENSEARCH_INDEX": "turbine-documents",
                 "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
-                "LLM_MODEL": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+                "LLM_MODEL": "amazon.nova-pro-v1:0",
                 # IAM authentication - no password needed
                 # AWS_REGION is automatically provided by Lambda runtime
             },
