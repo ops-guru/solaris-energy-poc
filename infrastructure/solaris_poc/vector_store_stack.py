@@ -52,6 +52,8 @@ class VectorStoreStack(cdk.Stack):
             security_groups=[security_group] if security_group else None,
             fine_grained_access_control=opensearch.AdvancedSecurityOptions(
                 master_user_name="admin",
+                # Note: After deployment, configure master user to use IAM ARN
+                # See docs/iam-authentication-migration.md for instructions
             ),
             enable_version_upgrade=True,
             automated_snapshot_start_hour=1,  # Backup at 1 AM UTC

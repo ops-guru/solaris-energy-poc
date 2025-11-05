@@ -26,8 +26,6 @@ logger.setLevel(logging.INFO)
 # Environment variables
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", "")
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "turbine-documents")
-OPENSEARCH_USER = os.environ.get("OPENSEARCH_MASTER_USER", "admin")
-OPENSEARCH_PASSWORD = os.environ.get("OPENSEARCH_MASTER_PASSWORD", "")
 EMBEDDING_MODEL = os.environ.get(
     "EMBEDDING_MODEL", "amazon.titan-embed-text-v1"
 )
@@ -142,11 +140,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if OPENSEARCH_AVAILABLE and OPENSEARCH_ENDPOINT:
             try:
-                # Connect to OpenSearch
+                # Connect to OpenSearch (using IAM authentication)
                 opensearch_client = get_opensearch_client(
                     OPENSEARCH_ENDPOINT,
-                    OPENSEARCH_USER,
-                    OPENSEARCH_PASSWORD,
                     AWS_REGION
                 )
                 

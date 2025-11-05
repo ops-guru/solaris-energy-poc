@@ -7,24 +7,21 @@ import json
 import boto3
 import logging
 from typing import Any, Dict, List, Optional
-from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAsyncAuth
+from opensearchpy import OpenSearch, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 
 logger = logging.getLogger(__name__)
 
 
 def get_opensearch_client(
     endpoint: str,
-    username: str,
-    password: str,
     region: str = "us-east-1",
 ) -> OpenSearch:
     """
-    Create and return an OpenSearch client.
+    Create and return an OpenSearch client using IAM authentication.
     
     Args:
         endpoint: OpenSearch domain endpoint (without https://)
-        username: Master username
-        password: Master password
         region: AWS region
     
     Returns:
@@ -33,10 +30,20 @@ def get_opensearch_client(
     # Remove protocol if present
     endpoint = endpoint.replace("https://", "").replace("http://", "")
     
-    # Create OpenSearch client with fine-grained access control
+    # Get AWS credentials from Lambda execution role
+    credentials = boto3.Session().get_credentials()
+    aws_auth = AWS4Auth(
+        credentials.access_key,
+        credentials.secret_key,
+        region,
+        'es',
+        session_token=credentials.token
+    )
+    
+    # Create OpenSearch client with IAM authentication
     client = OpenSearch(
         hosts=[{"host": endpoint, "port": 443}],
-        http_auth=(username, password),
+        http_auth=aws_auth,
         use_ssl=True,
         verify_certs=True,
         connection_class=RequestsHttpConnection,

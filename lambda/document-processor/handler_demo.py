@@ -7,6 +7,7 @@ Uses only built-in libraries for quick demo setup.
 import json
 import os
 import logging
+import base64
 from typing import Any, Dict, List
 import boto3
 
@@ -121,51 +122,59 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
-    """Store chunks in OpenSearch using IAM authentication."""
-    from opensearchpy import OpenSearch, RequestsHttpConnection
-    from requests_aws4auth import AWS4Auth
+    """Store chunks in OpenSearch using opensearch-py client."""
+    try:
+        from opensearchpy import OpenSearch
+    except ImportError:
+        # Fallback to requests if opensearch-py not available
+        import urllib3
+        import requests
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
+    username = os.environ.get("OPENSEARCH_MASTER_USER", "admin")
+    password = os.environ.get("OPENSEARCH_MASTER_PASSWORD", "")
     index_name = os.environ.get("OPENSEARCH_INDEX", "turbine-documents")
-    region = os.environ.get("AWS_REGION", "us-east-1")
     
     if not opensearch_endpoint:
         return 0
     
-    # Clean endpoint (remove protocol)
-    endpoint = opensearch_endpoint.replace("https://", "").replace("http://", "")
-    
     stored = 0
     
     try:
-        # Get AWS credentials from Lambda execution role
-        credentials = boto3.Session().get_credentials()
-        aws_auth = AWS4Auth(
-            credentials.access_key,
-            credentials.secret_key,
-            region,
-            'es',
-            session_token=credentials.token
-        )
-        
-        # Create OpenSearch client with IAM authentication
+        # Try using opensearch-py client
+        from opensearchpy import OpenSearch
         client = OpenSearch(
-            hosts=[{"host": endpoint, "port": 443}],
-            http_auth=aws_auth,
+            hosts=[{"host": opensearch_endpoint.replace("https://", "").replace("http://", ""), "port": 443}],
+            http_auth=(username, password),
             use_ssl=True,
-            verify_certs=True,
-            connection_class=RequestsHttpConnection,
-            timeout=30,
+            verify_certs=False,
+            ssl_show_warn=False,
         )
         
-        # Ensure index exists
-        ensure_index_exists(client, index_name)
-    
+        # Ensure index exists with k-NN mapping
+        if not client.indices.exists(index=index_name):
+            client.indices.create(
+                index=index_name,
+                body={
+                    "mappings": {
+                        "properties": {
+                            "text": {"type": "text"},
+                            "embedding": {
+                                "type": "knn_vector",
+                                "dimension": 1536,
+                            },
+                            "turbine_model": {"type": "keyword"},
+                            "document_type": {"type": "keyword"},
+                            "source": {"type": "keyword"},
+                        }
+                    }
+                }
+            )
         
         # Index documents
         for i, chunk in enumerate(chunks):
             try:
                 doc_id = f"{chunk['metadata']['source']}-{i}".replace("/", "-")
-                
                 doc = {
                     "text": chunk["text"],
                     "embedding": chunk["embedding"],
@@ -173,60 +182,36 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
                     "document_type": chunk["metadata"]["document_type"],
                     "source": chunk["metadata"]["source"],
                 }
-                
-                # Index document
-                response = client.index(
-                    index=index_name,
-                    id=doc_id,
-                    body=doc,
-                    refresh=False  # Batch refresh after all docs
-                )
-                
-                if response.get("result") in ["created", "updated"]:
-                    stored += 1
-                else:
-                    logger.warning(f"Unexpected response for chunk {i}: {response}")
-                    
+                client.index(index=index_name, id=doc_id, body=doc)
+                stored += 1
             except Exception as e:
-                logger.warning(f"Failed to store chunk {i}: {e}", exc_info=True)
-        
-        # Refresh index to make documents searchable
-        if stored > 0:
-            client.indices.refresh(index=index_name)
-        
-    except Exception as e:
-        logger.error(f"Failed to connect to OpenSearch: {e}", exc_info=True)
+                logger.warning(f"Failed to store chunk {i}: {e}")
+                
+    except ImportError:
+        # Fallback to requests
+        import requests
+        base_url = f"https://{opensearch_endpoint}"
+        for i, chunk in enumerate(chunks):
+            try:
+                doc_id = f"{chunk['metadata']['source']}-{i}".replace("/", "-")
+                url = f"{base_url}/{index_name}/_doc/{doc_id}"
+                doc = {
+                    "text": chunk["text"],
+                    "embedding": chunk["embedding"],
+                    "turbine_model": chunk["metadata"]["turbine_model"],
+                    "document_type": chunk["metadata"]["document_type"],
+                    "source": chunk["metadata"]["source"],
+                }
+                response = requests.put(
+                    url,
+                    json=doc,
+                    auth=(username, password),
+                    verify=False,
+                    timeout=10
+                )
+                if response.status_code in [200, 201]:
+                    stored += 1
+            except Exception as e:
+                logger.warning(f"Failed to store chunk {i}: {e}")
     
     return stored
-
-
-def ensure_index_exists(client, index_name: str) -> None:
-    """Create OpenSearch index if it doesn't exist."""
-    try:
-        if client.indices.exists(index=index_name):
-            logger.info(f"Index {index_name} already exists")
-            return
-        
-        # Index doesn't exist, create it
-        logger.info(f"Creating index {index_name}")
-        
-        index_mapping = {
-            "mappings": {
-                "properties": {
-                    "text": {"type": "text"},
-                    "embedding": {
-                        "type": "knn_vector",
-                        "dimension": 1536,
-                    },
-                    "turbine_model": {"type": "keyword"},
-                    "document_type": {"type": "keyword"},
-                    "source": {"type": "keyword"},
-                }
-            }
-        }
-        
-        client.indices.create(index=index_name, body=index_mapping)
-        logger.info(f"Successfully created index {index_name}")
-        
-    except Exception as e:
-        logger.warning(f"Error checking/creating index: {e}", exc_info=True)

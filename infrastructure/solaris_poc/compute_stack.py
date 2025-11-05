@@ -139,9 +139,7 @@ class ComputeStack(cdk.Stack):
                 "OPENSEARCH_ENDPOINT": opensearch_endpoint or "",
                 "OPENSEARCH_INDEX": "turbine-documents",
                 "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
-                "OPENSEARCH_MASTER_USER": "admin",
-                # Password should be stored in Secrets Manager in production
-                "OPENSEARCH_MASTER_PASSWORD": "TempP@ssw0rd123!Ch@ngeInProd",
+                # IAM authentication - no password needed
                 # AWS_REGION is automatically provided by Lambda runtime
             },
             log_group=log_group,
@@ -226,8 +224,8 @@ class ComputeStack(cdk.Stack):
                 "OPENSEARCH_INDEX": "turbine-documents",
                 "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
                 "LLM_MODEL": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-                "OPENSEARCH_MASTER_USER": "admin",
-                "OPENSEARCH_MASTER_PASSWORD": "TempP@ssw0rd123!Ch@ngeInProd",
+                # IAM authentication - no password needed
+                # AWS_REGION is automatically provided by Lambda runtime
             },
             log_group=log_group,
         )
