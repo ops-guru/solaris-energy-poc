@@ -18,7 +18,38 @@ AWS_PROFILE="${AWS_PROFILE:-mavenlink-functions}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DOC_PROCESSOR_FUNCTION="solaris-poc-document-processor"
 AGENT_WORKFLOW_FUNCTION="solaris-poc-agent-workflow"
-S3_BUCKET="${S3_BUCKET:-solaris-poc-documents-${AWS_ACCOUNT_ID}}"
+
+# Get actual bucket name from AWS (or use provided)
+if [ -z "${S3_BUCKET}" ]; then
+    echo "Detecting S3 bucket name..."
+    S3_BUCKET=$(aws s3api list-buckets \
+        --profile "${AWS_PROFILE}" \
+        --query "Buckets[?contains(Name, 'solaris-poc-documents')].Name" \
+        --output text \
+        --region "${AWS_REGION}" 2>/dev/null | head -1)
+    
+    if [ -z "${S3_BUCKET}" ]; then
+        # Fallback: try to get from CloudFormation stack outputs
+        S3_BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name StorageStack \
+            --profile "${AWS_PROFILE}" \
+            --region "${AWS_REGION}" \
+            --query 'Stacks[0].Outputs[?OutputKey==`DocumentsBucketName`].OutputValue' \
+            --output text 2>/dev/null)
+        
+        if [ -z "${S3_BUCKET}" ]; then
+            echo "⚠️  Could not detect S3 bucket. Using default pattern."
+            AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
+                --profile "${AWS_PROFILE}" \
+                --query Account \
+                --output text 2>/dev/null)
+            S3_BUCKET="solaris-poc-documents-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+        fi
+    fi
+fi
+
+# Document processor creates mock chunks, so we don't need an actual file
+# But we'll use a realistic key for testing
 TEST_DOC_KEY="test/turbine-manual-test.pdf"
 
 echo "Configuration:"
@@ -31,6 +62,7 @@ echo ""
 
 # Step 1: Process a test document
 echo -e "${YELLOW}Step 1: Processing test document...${NC}"
+echo "Note: Document processor creates mock chunks (doesn't require actual S3 file)"
 DOC_PAYLOAD=$(cat <<EOF
 {
   "s3_bucket": "${S3_BUCKET}",
@@ -42,6 +74,8 @@ EOF
 )
 
 echo "Invoking document processor..."
+echo "  Bucket: ${S3_BUCKET}"
+echo "  Key: ${TEST_DOC_KEY}"
 DOC_RESPONSE=$(aws lambda invoke \
   --function-name "${DOC_PROCESSOR_FUNCTION}" \
   --payload "${DOC_PAYLOAD}" \
