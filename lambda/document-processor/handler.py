@@ -15,7 +15,8 @@ logger.setLevel(logging.INFO)
 
 # AWS clients
 s3_client = boto3.client("s3")
-bedrock_runtime = boto3.client("bedrock-runtime", region_name="us-east-1")
+aws_region = os.environ.get("AWS_REGION", "us-east-1")
+bedrock_runtime = boto3.client("bedrock-runtime", region_name=aws_region)
 opensearch_endpoint = os.environ.get("OPENSEARCH_ENDPOINT", "")
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -129,6 +130,7 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
     region = os.environ.get("AWS_REGION", "us-east-1")
     
     if not opensearch_endpoint:
+        logger.warning("OpenSearch endpoint not configured")
         return 0
     
     # Clean endpoint (remove protocol)
@@ -139,6 +141,10 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
     try:
         # Get AWS credentials from Lambda execution role
         credentials = boto3.Session().get_credentials()
+        if not credentials:
+            logger.error("Failed to get AWS credentials")
+            return 0
+            
         aws_auth = AWS4Auth(
             credentials.access_key,
             credentials.secret_key,
@@ -159,19 +165,27 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
         
         # Ensure index exists
         ensure_index_exists(client, index_name)
-    
         
         # Index documents
         for i, chunk in enumerate(chunks):
             try:
-                doc_id = f"{chunk['metadata']['source']}-{i}".replace("/", "-")
+                # Generate unique document ID
+                source = chunk['metadata'].get('source', 'unknown')
+                chunk_idx = chunk['metadata'].get('chunk_index', i)
+                doc_id = f"{source}-{chunk_idx}".replace("/", "-").replace(" ", "-")
                 
+                # Prepare document with proper structure
                 doc = {
                     "text": chunk["text"],
                     "embedding": chunk["embedding"],
-                    "turbine_model": chunk["metadata"]["turbine_model"],
-                    "document_type": chunk["metadata"]["document_type"],
-                    "source": chunk["metadata"]["source"],
+                    "turbine_model": chunk["metadata"].get("turbine_model", "unknown"),
+                    "document_type": chunk["metadata"].get("document_type", "unknown"),
+                    "source": source,
+                    "metadata": {
+                        "chunk_index": chunk_idx,
+                        "turbine_model": chunk["metadata"].get("turbine_model", "unknown"),
+                        "document_type": chunk["metadata"].get("document_type", "unknown"),
+                    }
                 }
                 
                 # Index document
@@ -184,18 +198,22 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
                 
                 if response.get("result") in ["created", "updated"]:
                     stored += 1
+                    logger.info(f"Stored chunk {i+1}/{len(chunks)}: {doc_id}")
                 else:
                     logger.warning(f"Unexpected response for chunk {i}: {response}")
                     
             except Exception as e:
-                logger.warning(f"Failed to store chunk {i}: {e}", exc_info=True)
+                logger.error(f"Failed to store chunk {i}: {e}", exc_info=True)
         
         # Refresh index to make documents searchable
         if stored > 0:
             client.indices.refresh(index=index_name)
+            logger.info(f"Refreshed index {index_name} after storing {stored} chunks")
         
     except Exception as e:
         logger.error(f"Failed to connect to OpenSearch: {e}", exc_info=True)
+        import traceback
+        logger.error(traceback.format_exc())
     
     return stored
 

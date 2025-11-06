@@ -155,7 +155,14 @@ def search_documents(
         if filters:
             filter_clauses = []
             for key, value in filters.items():
-                filter_clauses.append({"term": {f"metadata.{key}.keyword": value}})
+                # Try both direct field and metadata.field paths
+                if key == "turbine_model":
+                    filter_clauses.append({"term": {"turbine_model": value}})
+                elif key == "document_type":
+                    filter_clauses.append({"term": {"document_type": value}})
+                else:
+                    # Fallback to metadata path
+                    filter_clauses.append({"term": {f"metadata.{key}.keyword": value}})
             
             if filter_clauses:
                 search_query["query"]["bool"]["must"] = filter_clauses
