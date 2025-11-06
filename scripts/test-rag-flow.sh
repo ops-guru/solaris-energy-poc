@@ -48,9 +48,48 @@ if [ -z "${S3_BUCKET}" ]; then
     fi
 fi
 
-# Document processor creates mock chunks, so we don't need an actual file
-# But we'll use a realistic key for testing
-TEST_DOC_KEY="test/turbine-manual-test.pdf"
+# Find an actual PDF file in the manuals folder
+echo "Finding PDF files in S3 bucket..."
+ACTUAL_PDF=$(aws s3 ls "s3://${S3_BUCKET}/manuals/" \
+    --profile "${AWS_PROFILE}" \
+    --recursive \
+    --region "${AWS_REGION}" 2>/dev/null | \
+    grep -E "\.pdf$" | \
+    awk '{print $4}' | \
+    head -1)
+
+if [ -z "${ACTUAL_PDF}" ]; then
+    echo "⚠️  No PDF files found in manuals/ folder. Using default test file."
+    TEST_DOC_KEY="manuals/Solaris_SMT60_Technical_Specs.pdf"
+else
+    TEST_DOC_KEY="${ACTUAL_PDF}"
+    echo "✅ Found PDF: ${TEST_DOC_KEY}"
+fi
+
+# Extract turbine model and document type from filename/path
+# Defaults to SMT60 and technical-specs if we can't determine
+TURBINE_MODEL="SMT60"
+DOCUMENT_TYPE="technical-specs"
+
+if echo "${TEST_DOC_KEY}" | grep -qi "smt60\|taurus60"; then
+    TURBINE_MODEL="SMT60"
+elif echo "${TEST_DOC_KEY}" | grep -qi "smt130\|titan130"; then
+    TURBINE_MODEL="SMT130"
+elif echo "${TEST_DOC_KEY}" | grep -qi "tm2500\|lm2500"; then
+    TURBINE_MODEL="TM2500"
+fi
+
+if echo "${TEST_DOC_KEY}" | grep -qi "operational\|operation\|procedure"; then
+    DOCUMENT_TYPE="operational"
+elif echo "${TEST_DOC_KEY}" | grep -qi "maintenance"; then
+    DOCUMENT_TYPE="maintenance"
+elif echo "${TEST_DOC_KEY}" | grep -qi "troubleshoot\|trouble"; then
+    DOCUMENT_TYPE="troubleshooting"
+elif echo "${TEST_DOC_KEY}" | grep -qi "reference"; then
+    DOCUMENT_TYPE="reference"
+elif echo "${TEST_DOC_KEY}" | grep -qi "spec\|specification"; then
+    DOCUMENT_TYPE="technical-specs"
+fi
 
 echo "Configuration:"
 echo "  AWS Profile: ${AWS_PROFILE}"
@@ -58,17 +97,17 @@ echo "  AWS Region: ${AWS_REGION}"
 echo "  Document Processor: ${DOC_PROCESSOR_FUNCTION}"
 echo "  Agent Workflow: ${AGENT_WORKFLOW_FUNCTION}"
 echo "  S3 Bucket: ${S3_BUCKET}"
+echo "  PDF File: ${TEST_DOC_KEY}"
 echo ""
 
 # Step 1: Process a test document
 echo -e "${YELLOW}Step 1: Processing test document...${NC}"
-echo "Note: Document processor creates mock chunks (doesn't require actual S3 file)"
 DOC_PAYLOAD=$(cat <<EOF
 {
   "s3_bucket": "${S3_BUCKET}",
   "s3_key": "${TEST_DOC_KEY}",
-  "turbine_model": "SMT60",
-  "document_type": "manual"
+  "turbine_model": "${TURBINE_MODEL}",
+  "document_type": "${DOCUMENT_TYPE}"
 }
 EOF
 )
@@ -76,6 +115,8 @@ EOF
 echo "Invoking document processor..."
 echo "  Bucket: ${S3_BUCKET}"
 echo "  Key: ${TEST_DOC_KEY}"
+echo "  Turbine Model: ${TURBINE_MODEL}"
+echo "  Document Type: ${DOCUMENT_TYPE}"
 DOC_RESPONSE=$(aws lambda invoke \
   --function-name "${DOC_PROCESSOR_FUNCTION}" \
   --payload "${DOC_PAYLOAD}" \
