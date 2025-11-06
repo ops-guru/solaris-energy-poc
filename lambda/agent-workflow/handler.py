@@ -43,23 +43,13 @@ def invoke_bedrock_llm(
     
     bedrock_runtime = boto3.client("bedrock-runtime", region_name=AWS_REGION)
     
-    # Build prompt for Nova Pro (uses inputText format, not messages)
+    # Build system message
     system_message = (
         "You are an expert assistant for gas turbine operations and "
         "troubleshooting. Use the provided documentation context to answer "
         "questions accurately. Always cite your sources. If the context "
         "doesn't contain relevant information, say so clearly."
     )
-    
-    # Build conversation context from history if available
-    conversation_context = ""
-    if conversation_history:
-        conversation_parts = []
-        for msg in conversation_history[-5:]:  # Last 5 messages for context
-            role = "User" if msg.get("role") == "user" else "Assistant"
-            content = msg.get("content", "")
-            conversation_parts.append(f"{role}: {content}")
-        conversation_context = "\n\nPrevious conversation:\n" + "\n".join(conversation_parts)
     
     # Build user prompt with context
     user_content = prompt
@@ -73,14 +63,38 @@ def invoke_bedrock_llm(
             "provided documentation."
         )
     
-    # Combine system message, conversation history, and user content for Nova Pro
-    combined_prompt = f"{system_message}{conversation_context}\n\n{user_content}"
+    # Build messages array for Nova Pro (uses messages format like Claude)
+    messages = []
     
-    # Nova Pro uses inputText format
+    # Add system message
+    messages.append({
+        "role": "system",
+        "content": [{"text": system_message}]
+    })
+    
+    # Add conversation history if available
+    if conversation_history:
+        for msg in conversation_history[-5:]:  # Last 5 messages for context
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            # Convert to Nova format
+            if role in ["user", "assistant"]:
+                messages.append({
+                    "role": role,
+                    "content": [{"text": content}]
+                })
+    
+    # Add current user message
+    messages.append({
+        "role": "user",
+        "content": [{"text": user_content}]
+    })
+    
+    # Nova Pro uses messages format with inferenceConfig
     body = {
-        "inputText": combined_prompt,
-        "textGenerationConfig": {
-            "maxTokenCount": 2048,
+        "messages": messages,
+        "inferenceConfig": {
+            "maxTokens": 2048,
             "temperature": 0.7,
             "topP": 0.9,
         }
@@ -95,10 +109,12 @@ def invoke_bedrock_llm(
         )
         
         response_body = json.loads(response["body"].read())
-        # Nova Pro returns results array
-        results = response_body.get("results", [])
-        if results and len(results) > 0:
-            return results[0].get("outputText", "")
+        # Nova Pro returns output.message.content array
+        output = response_body.get("output", {})
+        message = output.get("message", {})
+        content = message.get("content", [])
+        if content and len(content) > 0:
+            return content[0].get("text", "")
         return ""
     except Exception as e:
         logger.error(f"Bedrock LLM error: {e}", exc_info=True)

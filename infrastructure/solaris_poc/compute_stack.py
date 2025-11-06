@@ -3,7 +3,7 @@ import aws_cdk as cdk
 from aws_cdk import aws_lambda as _lambda
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
-from aws_cdk import Duration
+from aws_cdk import Duration, BundlingOptions
 from constructs import Construct
 
 
@@ -120,14 +120,24 @@ class ComputeStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
-        # Lambda function
+        # Lambda function with Docker bundling for dependencies
         lambda_function = _lambda.Function(
             self,
             "DocumentProcessor",
             function_name="solaris-poc-document-processor",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.lambda_handler",
-            code=_lambda.Code.from_asset("../lambda/document-processor"),
+            code=_lambda.Code.from_asset(
+                "../lambda/document-processor",
+                bundling=BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output",
+                    ],
+                ),
+            ),
             role=lambda_role,
             memory_size=1024,
             timeout=Duration.minutes(15),  # 15 minutes for large documents
@@ -204,14 +214,24 @@ class ComputeStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
-        # Lambda function
+        # Lambda function with Docker bundling for dependencies
         lambda_function = _lambda.Function(
             self,
             "AgentWorkflow",
             function_name="solaris-poc-agent-workflow",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.lambda_handler",
-            code=_lambda.Code.from_asset("../lambda/agent-workflow"),
+            code=_lambda.Code.from_asset(
+                "../lambda/agent-workflow",
+                bundling=BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output",
+                    ],
+                ),
+            ),
             role=lambda_role,
             memory_size=2048,  # Higher memory for LangGraph and LLM calls
             timeout=Duration.minutes(5),  # 5 minutes for complex reasoning
