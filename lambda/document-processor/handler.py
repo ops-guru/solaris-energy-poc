@@ -19,21 +19,116 @@ aws_region = os.environ.get("AWS_REGION", "us-east-1")
 bedrock_runtime = boto3.client("bedrock-runtime", region_name=aws_region)
 opensearch_endpoint = os.environ.get("OPENSEARCH_ENDPOINT", "")
 
+def extract_metadata_from_key(key: str) -> tuple[str, str]:
+    """
+    Extract turbine_model and document_type from S3 key path.
+    
+    Expected paths:
+    - manuals/SMT60-Taurus60/technical-specs/file.pdf
+    - manuals/SMT130-Titan130/operational/file.pdf
+    - manuals/TM2500-LM2500/maintenance/file.pdf
+    
+    Returns:
+        (turbine_model, document_type)
+    """
+    key_lower = key.lower()
+    
+    # Extract turbine model
+    turbine_model = "SMT60"  # default
+    if "smt60" in key_lower or "taurus60" in key_lower or "taurus-60" in key_lower:
+        turbine_model = "SMT60"
+    elif "smt130" in key_lower or "titan130" in key_lower or "titan-130" in key_lower:
+        turbine_model = "SMT130"
+    elif "tm2500" in key_lower or "lm2500" in key_lower:
+        turbine_model = "TM2500"
+    
+    # Extract document type
+    document_type = "unknown"  # default
+    if "technical-spec" in key_lower or "spec" in key_lower:
+        document_type = "technical-specs"
+    elif "operational" in key_lower or "operation" in key_lower or "procedure" in key_lower:
+        document_type = "operational"
+    elif "maintenance" in key_lower:
+        document_type = "maintenance"
+    elif "troubleshoot" in key_lower or "trouble" in key_lower:
+        document_type = "troubleshooting"
+    elif "reference" in key_lower:
+        document_type = "reference"
+    elif "safety" in key_lower:
+        document_type = "safety"
+    elif "manual" in key_lower:
+        document_type = "manual"
+    
+    return turbine_model, document_type
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Simplified handler for demo - creates basic text chunks."""
+    """
+    Handler for document processing.
+    
+    Supports two event formats:
+    1. S3 Event Notification (automatic trigger):
+       {
+         "Records": [{
+           "s3": {
+             "bucket": {"name": "bucket-name"},
+             "object": {"key": "path/to/file.pdf"}
+           }
+         }]
+       }
+    
+    2. Manual Invocation (for testing):
+       {
+         "s3_bucket": "bucket-name",
+         "s3_key": "path/to/file.pdf",
+         "turbine_model": "SMT60",  # optional, extracted from path if not provided
+         "document_type": "technical-specs"  # optional, extracted from path if not provided
+       }
+    """
     try:
-        logger.info(f"Processing document: {event}")
+        logger.info(f"Received event: {json.dumps(event)}")
         
-        bucket = event.get("s3_bucket")
-        key = event.get("s3_key")
-        turbine_model = event.get("turbine_model", "SMT60")
-        document_type = event.get("document_type", "unknown")
+        # Handle S3 event notification format
+        if "Records" in event and len(event.get("Records", [])) > 0:
+            # S3 event notification - process all records
+            record = event["Records"][0]
+            if "s3" not in record:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Invalid S3 event format"})
+                }
+            
+            bucket = record["s3"]["bucket"]["name"]
+            # S3 keys are URL-encoded, decode them properly
+            import urllib.parse
+            key = urllib.parse.unquote_plus(record["s3"]["object"]["key"])
+            
+            logger.info(f"Processing S3 event: s3://{bucket}/{key}")
+            
+            # Extract metadata from S3 key path
+            turbine_model, document_type = extract_metadata_from_key(key)
+            logger.info(f"Extracted metadata: turbine_model={turbine_model}, document_type={document_type}")
         
-        if not bucket or not key:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "s3_bucket and s3_key required"})
-            }
+        # Handle manual invocation format
+        else:
+            bucket = event.get("s3_bucket")
+            key = event.get("s3_key")
+            
+            if not bucket or not key:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "s3_bucket and s3_key required"})
+                }
+            
+            # Use provided metadata or extract from key
+            turbine_model = event.get("turbine_model")
+            document_type = event.get("document_type")
+            
+            if not turbine_model or not document_type:
+                extracted_model, extracted_type = extract_metadata_from_key(key)
+                turbine_model = turbine_model or extracted_model
+                document_type = document_type or extracted_type
+                logger.info(f"Extracted metadata from key: turbine_model={turbine_model}, document_type={document_type}")
         
         logger.info(f"Processing s3://{bucket}/{key}")
         

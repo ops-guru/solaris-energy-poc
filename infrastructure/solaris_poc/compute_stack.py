@@ -155,6 +155,27 @@ class ComputeStack(cdk.Stack):
             log_group=log_group,
         )
 
+        # Add S3 event notification trigger for automatic document processing
+        # Trigger when PDFs are uploaded to manuals/ prefix
+        if documents_bucket:
+            from aws_cdk import aws_s3_notifications as s3_notifications
+            
+            lambda_function.add_permission(
+                "AllowS3Invoke",
+                principal=iam.ServicePrincipal("s3.amazonaws.com"),
+                source_arn=documents_bucket.bucket_arn,
+            )
+            
+            # Add notification for PDF uploads in manuals/ prefix
+            documents_bucket.add_event_notification(
+                s3.EventType.OBJECT_CREATED,
+                s3_notifications.LambdaDestination(lambda_function),
+                s3.NotificationKeyFilter(
+                    prefix="manuals/",
+                    suffix=".pdf"
+                )
+            )
+
         return lambda_function
 
     def _create_agent_workflow(
