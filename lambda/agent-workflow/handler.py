@@ -63,21 +63,15 @@ def invoke_bedrock_llm(
             "provided documentation."
         )
     
-    # Build messages array for Nova Pro (uses messages format like Claude)
+    # Build messages array for Nova Pro (only user and assistant roles)
     messages = []
-    
-    # Add system message
-    messages.append({
-        "role": "system",
-        "content": [{"text": system_message}]
-    })
     
     # Add conversation history if available
     if conversation_history:
         for msg in conversation_history[-5:]:  # Last 5 messages for context
             role = msg.get("role", "user")
             content = msg.get("content", "")
-            # Convert to Nova format
+            # Convert to Nova format (only user and assistant roles allowed)
             if role in ["user", "assistant"]:
                 messages.append({
                     "role": role,
@@ -90,9 +84,10 @@ def invoke_bedrock_llm(
         "content": [{"text": user_content}]
     })
     
-    # Nova Pro uses messages format with inferenceConfig
+    # Nova Pro uses messages format with system as separate field (not in messages array)
     body = {
-        "messages": messages,
+        "system": [{"text": system_message}],  # System message passed separately
+        "messages": messages,  # Only user and assistant roles
         "inferenceConfig": {
             "maxTokens": 2048,
             "temperature": 0.7,
