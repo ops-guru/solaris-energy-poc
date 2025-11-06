@@ -11,32 +11,57 @@ echo "🔍 Testing OpenSearch IAM Access"
 echo "================================"
 echo ""
 
-# Get OpenSearch endpoint
+# Get OpenSearch endpoint (try multiple methods)
 echo "Getting OpenSearch endpoint..."
-ENDPOINT=$(aws opensearch describe-domain \
-    --domain-name "${OPENSEARCH_DOMAIN}" \
+
+# Method 1: Get from CloudFormation stack outputs (most reliable for VPC domains)
+ENDPOINT=$(aws cloudformation describe-stacks \
+    --stack-name VectorStoreStack \
     --profile "${AWS_PROFILE}" \
     --region "${AWS_REGION}" \
-    --query 'DomainStatus.Endpoint' \
+    --query 'Stacks[0].Outputs[?OutputKey==`OpenSearchEndpoint`].OutputValue' \
     --output text 2>/dev/null)
 
-if [ -z "${ENDPOINT}" ] || [ "${ENDPOINT}" = "None" ]; then
-    # VPC domain - get VPC endpoint
+# Method 2: Try regular endpoint
+if [ -z "${ENDPOINT}" ] || [ "${ENDPOINT}" = "None" ] || [ "${ENDPOINT}" = "null" ]; then
     ENDPOINT=$(aws opensearch describe-domain \
         --domain-name "${OPENSEARCH_DOMAIN}" \
         --profile "${AWS_PROFILE}" \
         --region "${AWS_REGION}" \
+        --query 'DomainStatus.Endpoint' \
+        --output text 2>/dev/null)
+fi
+
+# Method 3: Try VPC endpoint (for VPC domains)
+if [ -z "${ENDPOINT}" ] || [ "${ENDPOINT}" = "None" ] || [ "${ENDPOINT}" = "null" ]; then
+    ENDPOINT_V2=$(aws opensearch describe-domain \
+        --domain-name "${OPENSEARCH_DOMAIN}" \
+        --profile "${AWS_PROFILE}" \
+        --region "${AWS_REGION}" \
         --query 'DomainStatus.EndpointV2' \
-        --output json 2>/dev/null | jq -r '.VPC_ENDPOINTS[0].ENDPOINT // empty')
+        --output json 2>/dev/null)
+    
+    if [ -n "${ENDPOINT_V2}" ] && [ "${ENDPOINT_V2}" != "null" ]; then
+        # VPC domain - extract VPC endpoint (try different JSON structures)
+        ENDPOINT=$(echo "${ENDPOINT_V2}" | jq -r '.VPC_ENDPOINTS[0].ENDPOINT // .vpc_endpoints[0].endpoint // to_entries[0].value // empty' 2>/dev/null)
+    fi
 fi
 
 if [ -z "${ENDPOINT}" ] || [ "${ENDPOINT}" = "None" ] || [ "${ENDPOINT}" = "null" ]; then
     echo "⚠️  Could not get OpenSearch endpoint"
-    echo "Domain might be in VPC - check AWS Console for endpoint"
+    echo ""
+    echo "The domain is in a VPC. You can find the endpoint in AWS Console:"
+    echo "  1. Go to OpenSearch Service"
+    echo "  2. Click domain: ${OPENSEARCH_DOMAIN}"
+    echo "  3. Look for 'VPC endpoint' or check CloudFormation stack outputs"
+    echo ""
+    echo "Or manually set it:"
+    echo "  export OPENSEARCH_ENDPOINT='vpc-solaris-poc-vector-store-xxxxx.us-east-1.es.amazonaws.com'"
+    echo ""
     exit 1
 fi
 
-echo "Endpoint: ${ENDPOINT}"
+echo "✅ Endpoint: ${ENDPOINT}"
 echo ""
 
 # Get Lambda role ARN
