@@ -159,14 +159,14 @@ class ComputeStack(cdk.Stack):
 
         # Add S3 event notification trigger for automatic document processing
         # Trigger when PDFs are uploaded to manuals/ prefix
-        if documents_bucket:
+        if documents_bucket and documents_bucket.stack == self:
             lambda_function.add_permission(
                 "AllowS3Invoke",
                 principal=iam.ServicePrincipal("s3.amazonaws.com"),
                 source_arn=documents_bucket.bucket_arn,
             )
             
-            # Add notification for PDF uploads in manuals/ prefix
+            # Add notification for PDF uploads in manuals/ prefix when bucket resides in this stack
             documents_bucket.add_event_notification(
                 s3.EventType.OBJECT_CREATED,
                 s3_notifications.LambdaDestination(lambda_function),
@@ -174,6 +174,10 @@ class ComputeStack(cdk.Stack):
                     prefix="manuals/",
                     suffix=".pdf"
                 )
+            )
+        elif documents_bucket:
+            self.node.add_warning(
+                "S3 event notification for the document processor must be configured in the stack that owns the bucket."
             )
 
         return lambda_function
