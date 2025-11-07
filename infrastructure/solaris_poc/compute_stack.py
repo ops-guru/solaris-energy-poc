@@ -176,7 +176,9 @@ class ComputeStack(cdk.Stack):
                 )
             )
         elif documents_bucket:
-            self.node.add_warning(
+            node = self.node.default_child or self
+            node.add_metadata(
+                "warning",
                 "S3 event notification for the document processor must be configured in the stack that owns the bucket."
             )
 
