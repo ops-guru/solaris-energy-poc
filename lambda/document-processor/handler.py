@@ -1,14 +1,18 @@
 """
-Simplified Document Processor for Demo - Minimal Dependencies
+Document Processor Lambda
 
-Processes PDF and creates simple text chunks for OpenSearch.
-Uses only built-in libraries for quick demo setup.
+Downloads turbine manuals from S3, extracts text, chunks content, generates
+embeddings, and writes the resulting vectors to OpenSearch for RAG retrieval.
 """
+import io
 import json
 import os
+import re
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+
 import boto3
+import pdfplumber
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -18,6 +22,7 @@ s3_client = boto3.client("s3")
 aws_region = os.environ.get("AWS_REGION", "us-east-1")
 bedrock_runtime = boto3.client("bedrock-runtime", region_name=aws_region)
 opensearch_endpoint = os.environ.get("OPENSEARCH_ENDPOINT", "")
+
 
 def extract_metadata_from_key(key: str) -> tuple[str, str]:
     """
@@ -60,6 +65,77 @@ def extract_metadata_from_key(key: str) -> tuple[str, str]:
         document_type = "manual"
     
     return turbine_model, document_type
+
+
+def download_pdf(bucket: str, key: str) -> bytes:
+    """Download PDF bytes from S3."""
+    response = s3_client.get_object(Bucket=bucket, Key=key)
+    pdf_bytes = response["Body"].read()
+    logger.info(f"Downloaded {len(pdf_bytes)} bytes from s3://{bucket}/{key}")
+    return pdf_bytes
+
+
+def extract_text_by_page(pdf_bytes: bytes) -> List[Tuple[int, str]]:
+    """
+    Extract text from each page of a PDF.
+
+    Returns:
+        List of tuples (page_number, page_text)
+    """
+    pages: List[Tuple[int, str]] = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page_number, page in enumerate(pdf.pages, start=1):
+            raw_text = page.extract_text() or ""
+            cleaned = clean_text(raw_text)
+            if cleaned:
+                pages.append((page_number, cleaned))
+    return pages
+
+
+def clean_text(text: str) -> str:
+    """Normalize whitespace and strip leading/trailing characters."""
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def chunk_text(
+    text: str,
+    chunk_size: int = 1000,
+    overlap: int = 200,
+) -> List[Dict[str, Any]]:
+    """
+    Split text into overlapping chunks.
+
+    Args:
+        text: Cleaned text string.
+        chunk_size: Target number of characters per chunk.
+        overlap: Number of characters each chunk should overlap the previous.
+
+    Returns:
+        List of dictionaries with chunk text and relative character spans.
+    """
+    if not text:
+        return []
+
+    chunks: List[Dict[str, Any]] = []
+    start = 0
+    text_length = len(text)
+
+    while start < text_length:
+        end = min(text_length, start + chunk_size)
+        chunk_body = text[start:end]
+        chunks.append(
+            {
+                "text": chunk_body,
+                "char_start": start,
+                "char_end": end,
+            }
+        )
+        if end == text_length:
+            break
+        start = max(0, end - overlap)
+
+    return chunks
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -132,40 +208,66 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info(f"Processing s3://{bucket}/{key}")
         
-        # For demo: Create mock chunks with document metadata
-        # In production, this would extract text from PDF
-        
-        chunks = [
-            {
-                "text": f"Technical specifications for {turbine_model} turbine system. This document contains detailed operational parameters, performance metrics, and maintenance guidelines.",
-                "metadata": {
-                    "turbine_model": turbine_model,
-                    "document_type": document_type,
-                    "source": key,
-                    "chunk_index": 0
+        # Download and extract text
+        try:
+            pdf_bytes = download_pdf(bucket, key)
+            pages = extract_text_by_page(pdf_bytes)
+        except Exception as extraction_error:  # pylint: disable=broad-except
+            logger.error(
+                "Failed to extract text from %s: %s", key, extraction_error, exc_info=True
+            )
+            pages = []
+
+        if not pages:
+            logger.warning(
+                "No extractable text found in document; storing placeholder chunk."
+            )
+            pages = [(1, "No extractable text detected in this document.")]
+
+        # Build chunks with metadata
+        chunks: List[Dict[str, Any]] = []
+        chunk_counter = 0
+
+        for page_number, page_text in pages:
+            page_chunks = chunk_text(page_text)
+            if not page_chunks:
+                continue
+
+            for page_chunk in page_chunks:
+                chunks.append(
+                    {
+                        "text": page_chunk["text"],
+                        "metadata": {
+                            "turbine_model": turbine_model,
+                            "document_type": document_type,
+                            "source": key,
+                            "chunk_index": chunk_counter,
+                            "page": page_number,
+                            "char_start": page_chunk["char_start"],
+                            "char_end": page_chunk["char_end"],
+                        },
+                    }
+                )
+                chunk_counter += 1
+
+        if not chunks:
+            # Fallback when pages exist but chunking produced nothing
+            chunks = [
+                {
+                    "text": "No extractable text detected in this document.",
+                    "metadata": {
+                        "turbine_model": turbine_model,
+                        "document_type": document_type,
+                        "source": key,
+                        "chunk_index": 0,
+                        "page": 1,
+                        "char_start": 0,
+                        "char_end": 0,
+                    },
                 }
-            },
-            {
-                "text": f"Operation procedures for {turbine_model}. Follow manufacturer guidelines for safe operation. Monitor system parameters regularly.",
-                "metadata": {
-                    "turbine_model": turbine_model,
-                    "document_type": document_type,
-                    "source": key,
-                    "chunk_index": 1
-                }
-            },
-            {
-                "text": f"Troubleshooting guide for {turbine_model}. Common issues include oil pressure warnings, temperature alarms, and vibration alerts. Consult maintenance manual for detailed procedures.",
-                "metadata": {
-                    "turbine_model": turbine_model,
-                    "document_type": document_type,
-                    "source": key,
-                    "chunk_index": 2
-                }
-            }
-        ]
-        
-        logger.info(f"Created {len(chunks)} demo chunks")
+            ]
+
+        logger.info(f"Created {len(chunks)} text chunks")
         
         # Generate embeddings (using Bedrock Titan)
         enriched_chunks = []
@@ -270,17 +372,22 @@ def store_in_opensearch(chunks: List[Dict[str, Any]]) -> int:
                 doc_id = f"{source}-{chunk_idx}".replace("/", "-").replace(" ", "-")
                 
                 # Prepare document with proper structure
+                metadata = {
+                    "chunk_index": chunk_idx,
+                    "turbine_model": chunk["metadata"].get("turbine_model", "unknown"),
+                    "document_type": chunk["metadata"].get("document_type", "unknown"),
+                }
+                for field in ("page", "char_start", "char_end"):
+                    if field in chunk["metadata"]:
+                        metadata[field] = chunk["metadata"][field]
+
                 doc = {
                     "text": chunk["text"],
                     "embedding": chunk["embedding"],
                     "turbine_model": chunk["metadata"].get("turbine_model", "unknown"),
                     "document_type": chunk["metadata"].get("document_type", "unknown"),
                     "source": source,
-                    "metadata": {
-                        "chunk_index": chunk_idx,
-                        "turbine_model": chunk["metadata"].get("turbine_model", "unknown"),
-                        "document_type": chunk["metadata"].get("document_type", "unknown"),
-                    }
+                    "metadata": metadata,
                 }
                 
                 # Index document
