@@ -324,6 +324,11 @@ def ensure_index_exists(client, index_name: str) -> None:
         logger.info(f"Creating index {index_name}")
         
         index_mapping = {
+            "settings": {
+                "index": {
+                    "knn": True
+                }
+            },
             "mappings": {
                 "properties": {
                     "text": {"type": "text"},
@@ -334,6 +339,17 @@ def ensure_index_exists(client, index_name: str) -> None:
                     "turbine_model": {"type": "keyword"},
                     "document_type": {"type": "keyword"},
                     "source": {"type": "keyword"},
+                    "metadata": {
+                        "properties": {
+                            "chunk_index": {"type": "long"},
+                            "turbine_model": {
+                                "type": "keyword"
+                            },
+                            "document_type": {
+                                "type": "keyword"
+                            }
+                        }
+                    }
                 }
             }
         }
