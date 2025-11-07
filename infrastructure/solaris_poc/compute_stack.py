@@ -3,6 +3,8 @@ import aws_cdk as cdk
 from aws_cdk import aws_lambda as _lambda
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_s3_notifications as s3_notifications
 from aws_cdk import Duration, BundlingOptions
 from constructs import Construct
 
@@ -158,8 +160,6 @@ class ComputeStack(cdk.Stack):
         # Add S3 event notification trigger for automatic document processing
         # Trigger when PDFs are uploaded to manuals/ prefix
         if documents_bucket:
-            from aws_cdk import aws_s3_notifications as s3_notifications
-            
             lambda_function.add_permission(
                 "AllowS3Invoke",
                 principal=iam.ServicePrincipal("s3.amazonaws.com"),
