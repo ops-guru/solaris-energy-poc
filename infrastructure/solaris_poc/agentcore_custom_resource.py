@@ -39,7 +39,7 @@ class AgentCoreProvisioner:
         return {
             "AgentId": agent_id,
             "ActionGroupArn": action_group_arn,
-            "AgentEndpoint": endpoint,
+            "AgentEndpoint": endpoint or agent_id,
         }
 
     # --- internal helpers ---
@@ -128,8 +128,9 @@ class AgentCoreProvisioner:
         self.client.prepare_agent(agentId=agent_id)
         # The endpoint is returned via get_agent once the rollout completes
         response = self.client.get_agent(agentId=agent_id)
-        endpoint = response["agent"].get("agentArn")
-        return endpoint or agent_id
+        agent = response.get("agent", {})
+        # agentArn is populated once the deployment finishes preparing. Fallback to agentId.
+        return agent.get("agentArn") or agent.get("agentId") or agent_id
 
 
 def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
