@@ -1,111 +1,134 @@
-# Solaris Energy Infrastructure - AWS AgentCore POC
+# Solaris Energy Operator Assistant
 
-AI-powered operator assistant chatbot for turbine troubleshooting, powered by AWS Bedrock AgentCore, LangGraph, and OpenSearch RAG.
+Production-ready operator assistant for Solaris Energy field engineers, built on AWS Bedrock AgentCore, LangGraph, and OpenSearch-powered RAG.
 
-## Overview
+## What’s Included
 
-This POC demonstrates an enterprise-grade operator assistant that provides real-time, context-aware troubleshooting guidance for gas turbines using:
-- **AWS Bedrock AgentCore**: Agent orchestration, memory, and tool execution
-- **LangGraph**: Multi-step reasoning workflow
-- **OpenSearch**: High-precision RAG with hierarchical chunking
-- **Bedrock Claude 3.5 Sonnet / Nova Pro**: Multi-LLM support for quality evaluation
+- **LangGraph Agent Workflow** (`lambda/agent-workflow/handler.py`): multi-node pipeline (query transform → telemetry fetch → OpenSearch retrieval → Grok/Bedrock reasoning → guardrail validation).
+- **RAG Infrastructure**: document processor Lambda, k-NN OpenSearch index, and hierarchical chunking pipeline.
+- **AgentCore Tooling**: retrieval Lambda exposed as an AgentCore action group plus SSM-held agent definition for automated provisioning.
+- **Next.js Frontend** (`frontend/`): chat UI that talks directly to the AgentCore runtime.
+- **CDK Infrastructure** (`infrastructure/`): VPC, storage, OpenSearch, compute stacks, API Gateway (optional legacy path), and AgentCore configuration stack.
 
-## Repository Structure
+## Repository Layout
 
 ```
 solaris-energy-poc/
-├── infrastructure/          # CDK IaC templates
-├── lambda/                  # Lambda function code (Python)
-├── frontend/                # Next.js web UI
-├── manuals/                 # Turbine documentation (13 PDFs)
-├── docs/                    # Architecture, deployment guides
-├── scripts/                 # Utility scripts
-└── tests/                   # Integration and unit tests
+├── infrastructure/            # CDK stacks (network, storage, OpenSearch, compute, AgentCore config)
+├── lambda/                    # Lambda sources (document processor, agent workflow, utilities)
+├── frontend/                  # Next.js application
+├── docs/                      # Design + operational docs
+├── scripts/                   # Utility scripts (manual ingestion, tests)
+└── manuals/                   # Sample turbine PDFs (sync to S3)
 ```
 
-## Current Status
+## Deploying from Scratch
 
-✅ **Phase 0**: Document acquisition complete (13 PDFs, ~95 MB)  
-✅ **Phase 1**: Infrastructure as Code setup complete (Network, Storage, OpenSearch stacks)  
-🚧 **Phase 2**: Lambda functions and CI/CD scaffolding in progress  
-⏳ **Phase 3-6**: Pending implementation
+### 1. Prerequisites
 
-## Quick Start
+- AWS account with permissions for CDK + Bedrock AgentCore
+- AWS CLI configured (the repo uses the `mavenlink-functions` profile in examples)
+- Python 3.12+, Node.js 18+, Docker (for Lambda bundling)
+- AWS CDK CLI (`npm install -g aws-cdk`)
 
-### Prerequisites
-
-- AWS CLI configured with credentials
-- Python 3.12+
-- Node.js 18+ (for frontend)
-- AWS CDK CLI
-
-**AWS Profile**: This project uses the `mavenlink-functions` AWS profile (Account: 720119760662)
-
-### Local Development
+### 2. Bootstrap & Deploy Infrastructure
 
 ```bash
-# Set up infrastructure
 cd infrastructure
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Synthesize CloudFormation templates
-cdk synth
-
-# Deploy to AWS (when ready)
-# Note: Uses mavenlink-functions profile by default
-cdk deploy --all
+# Optional: cdk synth to inspect templates
+cdk deploy --all --profile mavenlink-functions
 ```
 
-### Document Processing
+Key outputs:
+- `AgentCoreStack.AgentDefinitionParameterName` – SSM parameter containing the agent definition JSON
+- `AgentCoreStack.AgentRetrievalToolArn` – Lambda ARN for the retrieval tool
+- S3 bucket / OpenSearch endpoint / Lambda ARNs for reference
+
+### 3. Provision the AgentCore Agent
+
+Agent creation currently leverages the AWS CLI (automation via a CDK custom resource is planned). Example:
 
 ```bash
-# Download turbine manuals
+AGENT_DEF=$(aws ssm get-parameter \
+  --name /solaris/agentcore/agent-definition \
+  --query 'Parameter.Value' \
+  --output text \
+  --profile mavenlink-functions)
+
+aws bedrock-agent create-agent \
+  --agent-name "solaris-operator-assistant" \
+  --agent-version "1.0.0" \
+  --instruction "$(echo "$AGENT_DEF" | jq -r '.instructions')" \
+  --foundation-model "$(echo "$AGENT_DEF" | jq -r '.defaultModelId')" \
+  --profile mavenlink-functions
+
+AGENT_ID=<returned-agent-id>
+TOOL_ARN=$(aws cloudformation describe-stacks \
+  --stack-name AgentCoreStack \
+  --query "Stacks[0].Outputs[?OutputKey=='AgentRetrievalToolArn'].OutputValue" \
+  --output text \
+  --profile mavenlink-functions)
+
+aws bedrock-agent create-agent-action-group \
+  --agent-id "$AGENT_ID" \
+  --action-group-name "RetrieveManualChunks" \
+  --action-group-executor "{\"lambda\": {\"lambda\": \"$TOOL_ARN\"}}" \
+  --profile mavenlink-functions
+
+aws bedrock-agent prepare-agent --agent-id "$AGENT_ID" --profile mavenlink-functions
+```
+
+Record the invocation endpoint returned from `get-agent` (or the console). That URL becomes `NEXT_PUBLIC_AGENTCORE_URL` for the frontend.
+
+### 4. Load Manuals into OpenSearch
+
+```bash
 cd scripts
-./download_manuals.sh
-
-# Upload to S3 (after infrastructure deployment)
-aws s3 sync ../manuals/ s3://<bucket-name>/manuals/
+./download_manuals.sh          # optional if PDFs not already in manuals/
+aws s3 sync ../manuals/ s3://<documents-bucket>/manuals/
 ```
 
-## Turbine Models Supported
+The document-processor Lambda will process new uploads automatically (three-level chunking + Titan embeddings).
 
-1. **SMT60** (5.7 MW) - Solar Turbines Taurus 60
-2. **SMT130** (16.5 MW) - Solar Turbines Titan 130
-3. **TM2500** (35 MW) - GE LM2500+G4
+### 5. Run the Frontend
 
-## Architecture
+```bash
+cd ../frontend
+npm install
 
-```
-User → CloudFront → API Gateway → Lambda → LangGraph Workflow
-                                              ↓
-                                    AgentCore (Memory, Tools)
-                                              ↓
-                                    Bedrock LLM + OpenSearch RAG
-                                              ↓
-                                    Response + Citations
+cat <<EOF > .env.local
+NEXT_PUBLIC_AGENTCORE_URL=https://<agent-endpoint>/invoke
+NEXT_PUBLIC_AGENTCORE_API_KEY=<optional-if-agent-enforces-api-key>
+EOF
+
+npm run dev
 ```
 
-For detailed architecture, see [docs/architecture.md](docs/architecture.md)
+Browse to `http://localhost:3000` and chat with the agent.
 
-## Documentation
+### 6. Regression Tests
 
-- [Architecture Overview](docs/architecture.md)
-- [Deployment Guide](docs/deployment.md)
-- [API Specification](docs/api-spec.yaml)
-- [IaC Tool Evaluation](docs/iac-tool-evaluation.md)
-- [Document Download Summary](docs/document-download-summary.md)
+- Lambda + RAG end-to-end smoke test: `./scripts/test-rag-flow.sh`
+- Frontend lint/build: `npm run lint` / `npm run build`
+
+## Operational Docs
+
+- [Architecture](docs/architecture.md)
+- [Agent Workflow (LangGraph)](docs/agentcore-langgraph-workflow.md)
+- [AgentCore Migration Notes](docs/agentcore-migration-plan.md)
+- [Document Ingestion Pipeline](docs/document-ingestion-pipeline.md)
+- [Testing the RAG Flow](docs/testing-rag-flow.md)
+- [AWS Setup Guide](docs/aws-setup-guide.md)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, testing expectations, and workflow.
 
 ## License
 
-Proprietary - Solaris Energy Infrastructure POC
-
-## Contact
-
-For questions or issues, contact the development team.
+Proprietary – Solaris Energy Infrastructure POC. Please contact the project maintainers for usage questions.
 

@@ -1,364 +1,78 @@
-# Solaris Energy Infrastructure POC - Architecture Diagram
+# Architecture Overview
 
-## System Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          OPERATOR INTERFACE                             │
-│                                                                         │
-│                    ┌──────────────────────────────┐                    │
-│                    │    Next.js Web Chat UI       │                    │
-│                    │  (React + TypeScript)        │                    │
-│                    └──────────────┬───────────────┘                    │
-└───────────────────────────────────┼───────────────────────────────────┘
-                                    │ HTTPS
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         API GATEWAY LAYER                               │
-│                                                                         │
-│                    ┌──────────────────────────────┐                  │
-│                    │    AWS API Gateway            │                  │
-│                    │  - REST API                   │                  │
-│                    │  - API Keys Authentication    │                  │
-│                    │  - Rate Limiting              │                  │
-│                    └──────────────┬───────────────┘                    │
-└───────────────────────────────────┼───────────────────────────────────┘
-                                    │
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         COMPUTE LAYER (VPC)                             │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │                    Lambda: Agent Workflow                        │ │
-│  │                                                                  │ │
-│  │  ┌──────────────────────────────────────────────────────────┐   │ │
-│  │  │           LangGraph Workflow Engine                      │   │ │
-│  │  │                                                           │   │ │
-│  │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │ │
-│  │  │  │   Query      │→│  Knowledge    │→│  Reasoning    │  │   │ │
-│  │  │  │ Transformer  │  │  Retriever   │  │  Engine      │  │   │ │
-│  │  │  └──────────────┘  └──────┬───────┘  └──────┬───────┘  │   │ │
-│  │  │                           │                  │          │   │ │
-│  │  │  ┌──────────────┐  ┌──────┴───────┐  ┌──────┴───────┐  │   │ │
-│  │  │  │   Response   │←│  Response     │←│  Data         │  │   │ │
-│  │  │  │   Validator  │  │  Generator    │  │  Fetcher      │  │   │ │
-│  │  │  └──────────────┘  └───────────────┘  └───────────────┘  │   │ │
-│  │  └──────────────────────────────────────────────────────────┘   │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │              Lambda: Document Processor                          │ │
-│  │  - PDF Extraction (pdfplumber)                                  │ │
-│  │  - Hierarchical Chunking                                        │ │
-│  │  - Embedding Generation (Bedrock Titan)                         │ │
-│  │  - OpenSearch Indexing                                          │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │              Lambda: API Handlers                                │ │
-│  │  - Chat endpoint handler                                        │ │
-│  │  - Session management                                           │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ↓               ↓               ↓
-┌───────────────────────────┐  ┌───────────────────────────┐  ┌───────────────────────────┐
-│   AI SERVICES (Bedrock)   │  │   VECTOR STORE            │  │   STORAGE LAYER           │
-│                           │  │                           │  │                           │
-│  ┌─────────────────────┐ │  │  ┌─────────────────────┐  │  │  ┌─────────────────────┐  │
-│  │  AgentCore          │ │  │  │  OpenSearch Domain  │  │  │  │  S3 Bucket          │  │
-│  │  - Orchestration    │ │  │  │  - k-NN Plugin      │  │  │  │  - Turbine Manuals  │  │
-│  │  - Memory           │ │  │  │  - HNSW Index       │  │  │  │  - PDF Documents     │  │
-│  │  - Tool Execution   │ │  │  │  - Vector Search    │  │  │  └─────────────────────┘  │
-│  └─────────────────────┘ │  │  └─────────────────────┘  │  │                           │
-│                           │  │                           │  │  ┌─────────────────────┐  │
-│  ┌─────────────────────┐ │  │  ┌─────────────────────┐  │  │  │  DynamoDB Table     │  │
-│  │  Claude 3.5 Sonnet  │ │  │  │  Index:             │  │  │  │  - Chat Sessions    │  │
-│  │  - Primary LLM      │ │  │  │  turbine-documents  │  │  │  │  - User Feedback    │  │
-│  └─────────────────────┘ │  │  └─────────────────────┘  │  │  │  - Config Data      │  │
-│                           │  │                           │  │  └─────────────────────┘  │
-│  ┌─────────────────────┐ │  │                           │  │                           │
-│  │  Amazon Nova Pro    │ │  │                           │  │                           │
-│  │  - Alternative LLM  │ │  │                           │  │                           │
-│  └─────────────────────┘ │  │                           │  │                           │
-│                           │  │                           │  │                           │
-│  ┌─────────────────────┐ │  │                           │  │                           │
-│  │  Bedrock Titan      │ │  │                           │  │                           │
-│  │  - Embeddings       │ │  │                           │  │                           │
-│  └─────────────────────┘ │  │                           │  │                           │
-│                           │  │                           │  │                           │
-│  ┌─────────────────────┐ │  │                           │  │                           │
-│  │  Guardrails         │ │  │                           │  │                           │
-│  │  - Content Filter   │ │  │                           │  │                           │
-│  └─────────────────────┘ │  │                           │  │                           │
-└───────────────────────────┘  └───────────────────────────┘  └───────────────────────────┘
-```
-
-## Data Flow
-
-### 1. Query Processing Flow
+The Solaris Energy operator assistant combines a LangGraph reasoning pipeline, Amazon Bedrock AgentCore, and an OpenSearch-backed knowledge base. The default request path is:
 
 ```
-Operator Query
-    ↓
-[Web UI] → Natural language input
-    ↓
-[API Gateway] → Authentication, rate limiting
-    ↓
-[Agent Workflow Lambda] → LangGraph orchestration
-    ↓
-[Query Transformer] → Extract intent, detect turbine model
-    ↓
-[Knowledge Retriever] → Hybrid RAG search on OpenSearch
-    ↓
-[Reasoning Engine] → Bedrock LLM with context
-    ↓
-[Response Validator] → Format, add citations, guardrails check
-    ↓
-[Response] → Return to operator with source citations
+User Browser ──▶ Next.js Frontend ──▶ AgentCore Runtime
+                                   ▲             │
+                                   │             ▼
+                         Retrieval Tool (Lambda) ─┬─▶ LangGraph Workflow
+                                                 └─▶ OpenSearch Vector Index
+
+Manual PDFs ──▶ S3 ──▶ Document Processor Lambda ──▶ Titan Embeddings ──▶ OpenSearch
 ```
 
-### 2. Document Processing Flow
+## Core Components
 
-```
-PDF Document (S3)
-    ↓
-[Document Processor Lambda] → Triggered by S3 event
-    ↓
-[PDF Extraction] → pdfplumber extracts text
-    ↓
-[Hierarchical Chunking] → Split into semantic chunks
-    ↓
-[Embedding Generation] → Bedrock Titan creates vectors
-    ↓
-[OpenSearch Indexing] → Store vectors with metadata
-    ↓
-[Knowledge Base] → Ready for RAG queries
-```
+| Component | Notes |
+|-----------|-------|
+| **Next.js Frontend** | Chat UI (React + Tailwind) calling the AgentCore agent endpoint directly. |
+| **AgentCore Runtime** | Manages the agent, conversation memory, and tool invocation. |
+| **Agent Workflow Lambda** | LangGraph pipeline: query transformer → telemetry fetcher → RAG retriever → Grok/Nova reasoner → guardrail validator. |
+| **Document Processor Lambda** | Triggered by S3 uploads, extracts PDF text, performs hierarchical chunking, generates Titan embeddings, and indexes OpenSearch. |
+| **OpenSearch** | k-NN index (`turbine-documents`) holding turbine manuals with metadata. |
+| **Agent Retrieval Tool Lambda** | Exposes the RAG workflow to AgentCore as an action group. |
 
-### 3. Session Management Flow
+An API Gateway + Lambda path still exists for legacy clients, but the frontend does not depend on it.
 
-```
-Chat Session Start
-    ↓
-[API Handler] → Create session ID
-    ↓
-[DynamoDB] → Store session metadata
-    ↓
-[Agent Workflow] → Maintain conversation context
-    ↓
-[User Feedback] → Store feedback (thumbs up/down)
-    ↓
-[DynamoDB] → Update session with feedback
-```
+## LangGraph Workflow (Agent Workflow Lambda)
 
-## Network Architecture
+1. **Query Transformer** – normalises turbine aliases, language hints, and produces a structured prompt.
+2. **Telemetry Fetcher** – optionally fetches recent telemetry via the AgentCore gateway (feature-flagged).
+3. **Knowledge Retriever** – hybrid OpenSearch search with neighbour chunk stitching for richer context.
+4. **Reasoning Engine** – Grok API (primary) with Bedrock Nova Pro fallback and shared prompt templates.
+5. **Response Validator** – runs Bedrock Guardrails, blends relevance scores, attaches warnings for low confidence.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           VPC (10.0.0.0/16)                             │
-│                                                                         │
-│  ┌──────────────────────────┐      ┌──────────────────────────┐        │
-│  │  Public Subnet (AZ-1)    │      │  Public Subnet (AZ-2)    │        │
-│  │  10.0.1.0/24             │      │  10.0.2.0/24             │        │
-│  │                          │      │                          │        │
-│  │  - NAT Gateway           │      │  - NAT Gateway (POC: 1)  │        │
-│  │  - VPC Endpoints         │      │                          │        │
-│  └──────────────────────────┘      └──────────────────────────┘        │
-│                                                                         │
-│  ┌──────────────────────────┐      ┌──────────────────────────┐        │
-│  │  Private Subnet (AZ-1)   │      │  Private Subnet (AZ-2)   │        │
-│  │  10.0.11.0/24            │      │  10.0.12.0/24            │        │
-│  │                          │      │                          │        │
-│  │  - Lambda Functions      │      │  - Lambda Functions      │        │
-│  │  - OpenSearch Domain     │      │  - (Future: Multi-AZ)     │        │
-│  │    (t3.small.search)     │      │                          │        │
-│  └──────────────────────────┘      └──────────────────────────┘        │
-│                                                                         │
-│  Security Groups:                                                      │
-│  - Lambda Security Group (egress to OpenSearch)                        │
-│  - OpenSearch Security Group (ingress from Lambda)                     │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+Details live in [agentcore-langgraph-workflow.md](agentcore-langgraph-workflow.md).
 
-## Infrastructure Stacks
+## CDK Stacks
 
-### Stack Dependencies
+| Stack | Responsibilities |
+|-------|------------------|
+| **NetworkStack** | VPC, subnets, security groups, VPC endpoints for Bedrock/OpenSearch. |
+| **StorageStack** | S3 manual bucket, (legacy) DynamoDB session table. |
+| **VectorStoreStack** | OpenSearch domain with k-NN index and IAM access. |
+| **ComputeStack** | Document processor Lambda, LangGraph workflow Lambda, AgentCore retrieval tool Lambda. |
+| **ApiStack** | API Gateway + Lambda route (legacy compatibility). |
+| **AgentCoreStack** | Publishes the agent definition to SSM and surfaces the retrieval Lambda ARN for tool registration. |
 
-```
-NetworkStack (Foundation)
-    ↓
-    ├──→ StorageStack (S3, DynamoDB)
-    │
-    ├──→ VectorStoreStack (OpenSearch)
-    │       ↓
-    │       └──→ ComputeStack (Lambda functions)
-    │               ↓
-    │               └──→ ApiStack (API Gateway)
-    │
-    └──→ (Future) BedrockStack
-    └──→ (Future) ObservabilityStack
-```
+## Data Flow Summary
 
-### Current Implementation Status
+1. **Manual ingestion**  
+   Upload PDFs to the `manuals/` prefix. The document processor Lambda extracts text, chunks it hierarchically, stores embeddings, and refreshes the OpenSearch index.
 
-- ✅ **NetworkStack**: VPC, subnets, NAT gateway, security groups, VPC endpoints
-- ✅ **StorageStack**: S3 buckets, DynamoDB tables
-- ✅ **VectorStoreStack**: OpenSearch domain with k-NN
-- ✅ **ComputeStack**: Lambda functions (Agent Workflow, Document Processor, API Handlers)
-- ✅ **ApiStack**: API Gateway with Lambda integration
-- ⏳ **BedrockStack**: AgentCore configuration (pending)
-- ⏳ **ObservabilityStack**: CloudWatch dashboards (pending)
+2. **Chat interaction**  
+   - Frontend calls the AgentCore agent endpoint.  
+   - AgentCore invokes the retrieval tool Lambda (LangGraph workflow).  
+   - The workflow retrieves context from OpenSearch, optionally fetches telemetry, reasons with Grok/Bedrock, and returns an answer and citations.  
+   - AgentCore manages memory and returns the response to the frontend.
 
-## Security Architecture
+## External Integrations
 
-### Encryption
+- **Amazon Bedrock** – Nova Pro fallback LLM, Titan embeddings, Guardrails.
+- **Grok API** – primary reasoning model (requires `GROK_API_URL`/`GROK_API_KEY`).
+- **AgentCore Gateway** – optional telemetry feed (e.g., Amazon Timestream).
 
-- **At Rest**: 
-  - S3: Server-side encryption (SSE-S3)
-  - DynamoDB: Encryption at rest enabled
-  - OpenSearch: Encryption at rest enabled
+## Observability
 
-- **In Transit**:
-  - HTTPS/TLS for all API communications
-  - OpenSearch: Node-to-node encryption enabled
-  - VPC endpoints for AWS services
+- CloudWatch Logs for each Lambda.
+- AgentCore telemetry/observability dashboards (when enabled).
+- OpenSearch slow/audit logs (optional).
 
-### Access Control
+## Reference Docs
 
-- **Network**: VPC isolation, private subnets for sensitive components
-- **IAM**: Least-privilege roles for Lambda functions
-- **API**: API Gateway API keys for authentication
-- **Content**: Bedrock Guardrails for content filtering
-
-### Monitoring
-
-- **CloudWatch**: Logs, metrics, alarms
-- **CloudTrail**: API audit logging
-- **X-Ray**: Distributed tracing (future)
-
-## Scalability & Performance
-
-### Current Configuration (POC)
-
-- **OpenSearch**: Single AZ, t3.small.search instance
-- **Lambda**: 512 MB memory, 3-minute timeout
-- **VPC**: Single NAT gateway (cost-optimized)
-
-### Production Considerations
-
-- **Multi-AZ**: OpenSearch zone awareness
-- **Auto Scaling**: Lambda concurrency, OpenSearch scaling
-- **Caching**: CloudFront for static assets, API response caching
-- **Load Balancing**: Multiple NAT gateways, API Gateway throttling
-
-## Cost Optimization
-
-### POC Monthly Estimate (~$115-170)
-
-- VPC & Networking: ~$50
-- S3 Storage: ~$5
-- DynamoDB: ~$5
-- OpenSearch: ~$50
-- Lambda: ~$1
-- Bedrock: ~$50-100 (usage-based)
-
-### Cost Reduction Strategies
-
-- Single-AZ deployment for POC
-- Minimal NAT gateway usage
-- VPC endpoints to reduce NAT costs
-- On-demand pricing for DynamoDB
-- Reserved capacity for production (future)
-
-## Deployment Architecture
-
-### CI/CD Pipeline
-
-```
-GitHub Repository
-    ↓
-[GitHub Actions] → OIDC Authentication
-    ↓
-[CDK Synthesis] → Validate templates
-    ↓
-[AWS Deployment] → cdk deploy --all
-    ↓
-[Infrastructure] → Stacks deployed in order
-    ↓
-[Lambda Deployment] → Package and deploy functions
-    ↓
-[Health Checks] → Validate deployment
-```
-
-## Integration Points
-
-### External Systems (Future)
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Solaris Pulse Integration                            │
-│                                                                         │
-│  [Agent Workflow] → Work Order API → [Solaris Pulse]                   │
-│                                                                         │
-│  Capabilities:                                                          │
-│  - Generate work orders from troubleshooting steps                     │
-│  - Query maintenance schedules                                         │
-│  - Update service records                                              │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Future Enhancements
-
-- **Timestream Integration**: Real-time sensor data for predictive maintenance
-- **Grok API**: Alternative LLM provider (when available)
-- **Multi-language Support**: Internationalization
-- **Mobile App**: Native mobile interface
-
----
-
-## Component Details
-
-### Lambda Functions
-
-1. **Agent Workflow Lambda**
-   - LangGraph workflow orchestration
-   - 5-node workflow: Query Transformer → Knowledge Retriever → Reasoning Engine → Response Validator → Data Fetcher
-   - Memory: 512 MB - 1 GB
-   - Timeout: 3 minutes
-
-2. **Document Processor Lambda**
-   - PDF extraction and processing
-   - Embedding generation
-   - OpenSearch indexing
-   - Triggered by S3 events
-
-3. **API Handler Lambda**
-   - Chat endpoint handler
-   - Session management
-   - Request/response formatting
-
-### OpenSearch Configuration
-
-- **Version**: OpenSearch 2.11
-- **Instance**: t3.small.search (1 data node)
-- **Storage**: 20 GB GP3 EBS volume
-- **Index**: `turbine-documents`
-- **Features**: k-NN plugin, HNSW algorithm
-- **Security**: Fine-grained access control, master user authentication
-
-### Bedrock Models
-
-- **Primary LLM**: Claude 3.5 Sonnet (anthropic.claude-3-5-sonnet-20241022-v2:0)
-- **Alternative LLM**: Amazon Nova Pro (future)
-- **Embeddings**: Bedrock Titan Embeddings (amazon.titan-embed-text-v1)
-- **Guardrails**: Bedrock Guardrails for content filtering
-
----
-
-*Last Updated: 2025-01-31*
-*Architecture Version: 1.0*
+- [Agent Workflow Deep Dive](agentcore-langgraph-workflow.md)
+- [AgentCore Migration Plan](agentcore-migration-plan.md)
+- [Document Ingestion Pipeline](document-ingestion-pipeline.md)
+- [Testing the RAG Flow](testing-rag-flow.md)
 
