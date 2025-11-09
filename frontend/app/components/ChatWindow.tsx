@@ -194,11 +194,20 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-solaris-gray-medium">
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-solaris-primary rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-solaris-primary rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                  <div className="w-2 h-2 bg-solaris-primary rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+              <div className="bg-white rounded-lg shadow-sm p-4 border border-solaris-gray-medium max-w-3xl">
+                <p className="text-sm text-gray-700 mb-3">
+                  Solaris assistant is reviewing the manuals for you...
+                </p>
+                <div className="flex items-center space-x-2 text-solaris-primary">
+                  <div className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"
+                    style={{ animationDelay: "0.15s" }}
+                  ></div>
+                  <div
+                    className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"
+                    style={{ animationDelay: "0.3s" }}
+                  ></div>
                 </div>
               </div>
             </div>
