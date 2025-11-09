@@ -1,0 +1,33 @@
+{
+  "default_model": "nova_pro",
+  "fallback_model": "nova_pro",
+  "models": {
+    "nova_pro": {
+      "display_name": "Amazon Nova Pro",
+      "type": "bedrock",
+      "model_id": "amazon.nova-pro-v1:0",
+      "inference_config": {
+        "max_tokens": 2048,
+        "temperature": 0.4
+      }
+    },
+    "claude_4_5": {
+      "display_name": "Anthropic Claude 4.5 Sonnet",
+      "type": "bedrock",
+      "model_id": "anthropic.claude-4.5-sonnet-20250205-v1:0",
+      "inference_config": {
+        "max_tokens": 2048,
+        "temperature": 0.35
+      }
+    },
+    "grok": {
+      "display_name": "Grok Operator Assistant",
+      "type": "grok",
+      "requires": [
+        "GROK_API_URL",
+        "GROK_API_KEY"
+      ]
+    }
+  }
+}
+
