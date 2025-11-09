@@ -8,8 +8,10 @@ import aws_cdk as cdk
 from aws_cdk import (
     aws_iam as iam,
     aws_lambda as _lambda,
+    aws_logs as logs,
     aws_s3 as s3,
     aws_ssm as ssm,
+    custom_resources as cr,
 )
 from constructs import Construct
 
@@ -23,6 +25,7 @@ class AgentCoreConfigStack(cdk.Stack):
         construct_id: str,
         retrieval_tool_lambda: _lambda.IFunction,
         documents_bucket: s3.Bucket,
+        agent_name: str = "solaris-operator-assistant",
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -66,6 +69,26 @@ class AgentCoreConfigStack(cdk.Stack):
             description="Lambda ARN to register as AgentCore retrieval tool",
         )
 
+        custom_resource = self._provision_agent_core(
+            agent_name=agent_name,
+            agent_definition=definition,
+            retrieval_tool_lambda=retrieval_tool_lambda,
+        )
+
+        cdk.CfnOutput(
+            self,
+            "AgentCoreAgentId",
+            value=custom_resource.get_att_string("AgentId"),
+            description="Provisioned AgentCore agent ID",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "AgentCoreEndpoint",
+            value=custom_resource.get_att_string("AgentEndpoint"),
+            description="AgentCore invocation endpoint or ARN",
+        )
+
     def _load_agent_definition_template(
         self,
         retrieval_lambda_arn: str,
@@ -84,4 +107,65 @@ class AgentCoreConfigStack(cdk.Stack):
         template["permissions"]["documentsBucketArn"] = documents_bucket_arn
 
         return template
+
+    def _provision_agent_core(
+        self,
+        agent_name: str,
+        agent_definition: dict[str, object],
+        retrieval_tool_lambda: _lambda.IFunction,
+    ) -> cdk.CustomResource:
+        """Create the custom resource that provisions the AgentCore agent."""
+        handler = _lambda.Function(
+            self,
+            "AgentCoreProvisionerFn",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="agentcore_custom_resource.lambda_handler",
+            code=_lambda.Code.from_asset(
+                path=str(Path(__file__).resolve().parent),
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "cp agentcore_custom_resource.py /asset-output/",
+                    ],
+                ),
+            ),
+            timeout=cdk.Duration.minutes(5),
+        )
+
+        handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock-agent:CreateAgent",
+                    "bedrock-agent:UpdateAgent",
+                    "bedrock-agent:ListAgents",
+                    "bedrock-agent:CreateAgentActionGroup",
+                    "bedrock-agent:UpdateAgentActionGroup",
+                    "bedrock-agent:ListAgentActionGroups",
+                    "bedrock-agent:PrepareAgent",
+                    "bedrock-agent:GetAgent",
+                ],
+                resources=["*"],
+            )
+        )
+
+        provider = cr.Provider(
+            self,
+            "AgentCoreProvisionerProvider",
+            on_event_handler=handler,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+
+        return cdk.CustomResource(
+            self,
+            "AgentCoreProvisioner",
+            service_token=provider.service_token,
+            properties={
+                "Region": self.region,
+                "AgentName": agent_name,
+                "RetrievalLambdaArn": retrieval_tool_lambda.function_arn,
+                "AgentDefinition": json.dumps(agent_definition),
+            },
+        )
 
