@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - LangGraph_implementation
   workflow_dispatch:
 
 env:
@@ -73,7 +74,7 @@ jobs:
         continue-on-error: true
       
       - name: CDK Deploy (if AWS configured)
-        if: github.ref == 'refs/heads/main' && steps.check-aws.outputs.aws_configured == 'true'
+        if: steps.check-aws.outputs.aws_configured == 'true'
         working-directory: infrastructure
         run: |
           echo "Deploying infrastructure to AWS..."
