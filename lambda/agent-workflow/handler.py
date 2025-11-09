@@ -6,8 +6,10 @@ Performs retrieval-augmented generation using OpenSearch vector store.
 import json
 import os
 import logging
-from typing import Any, Dict, List
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import boto3
 
 # Import OpenSearch and LLM helpers
 try:
@@ -40,6 +42,9 @@ LLM_MODEL = os.environ.get(
     "LLM_MODEL", "amazon.nova-pro-v1:0"
 )
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+DOCUMENTS_BUCKET = os.environ.get("DOCUMENTS_BUCKET", "")
+
+S3_CLIENT = boto3.client("s3") if DOCUMENTS_BUCKET else None
 
 
 def invoke_bedrock_llm(
@@ -191,14 +196,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
                 
                 # Build citations from results
+                max_raw_score = max(
+                    (doc.get("score", 0.0) for doc in retrieved_docs), default=0.0
+                )
+
                 for doc in retrieved_docs:
+                    raw_score = doc.get("score", 0.0)
+                    normalized_score = (
+                        raw_score / max_raw_score if max_raw_score > 0 else 0.0
+                    )
+                    normalized_score = min(max(normalized_score, 0.0), 1.0)
+
+                    source = doc.get("source", "Unknown")
+                    page = doc.get("page")
+                    excerpt = doc.get("content", "")
+                    if len(excerpt) > 250:
+                        excerpt = f"{excerpt[:247]}..."
+
                     citations.append({
-                        "source": doc.get("source", "Unknown"),
-                        "page": doc.get("page"),
-                        "excerpt": doc.get("content", "")[:200] + "...",
-                        "relevance_score": doc.get("score", 0.0)
+                        "source": source,
+                        "page": page,
+                        "excerpt": excerpt,
+                        "relevance_score": normalized_score,
+                        "url": generate_presigned_document_url(source, page),
                     })
-                
+
                 logger.info(
                     f"Retrieved {len(retrieved_docs)} docs from OpenSearch"
                 )
@@ -224,13 +246,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         response_text = invoke_bedrock_llm(query, context, messages)
         
         # Step 4: Calculate confidence score based on retrieval quality
-        confidence_score = 0.8 if retrieved_docs else 0.5
-        if retrieved_docs:
-            avg_score = sum(
-                d.get("score", 0.0) for d in retrieved_docs
-            ) / len(retrieved_docs)
-            # Scale score to 0.6-0.95
-            confidence_score = min(0.95, 0.6 + (avg_score / 10))
+        if not retrieved_docs:
+            confidence_score = 0.5
+        elif not citations:
+            confidence_score = 0.6
+        else:
+            confidence_score = calculate_confidence_from_scores(
+                [c.get("relevance_score", 0.0) for c in citations]
+            )
         
         # Step 5: Build response
         response_data = {
@@ -265,3 +288,42 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "confidence_score": 0.0,
             }),
         }
+
+
+def generate_presigned_document_url(
+    source_key: Optional[str], page: Optional[int]
+) -> Optional[str]:
+    """Return a pre-signed URL to the source document, optionally anchored to a page."""
+    if not DOCUMENTS_BUCKET or not S3_CLIENT or not source_key:
+        return None
+
+    try:
+        presigned = S3_CLIENT.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": DOCUMENTS_BUCKET,
+                "Key": source_key,
+            },
+            ExpiresIn=3600,
+        )
+
+        if page:
+            return f"{presigned}#page={page}"
+        return presigned
+    except Exception as error:  # pylint: disable=broad-except
+        logger.warning(
+            "Failed to generate pre-signed URL for %s: %s",
+            source_key,
+            error,
+        )
+        return None
+
+
+def calculate_confidence_from_scores(scores: List[float]) -> float:
+    """Map normalized relevance scores (0-1) to a confidence value."""
+    if not scores:
+        return 0.6
+
+    avg_score = sum(scores) / len(scores)
+    # Base confidence at 0.6, add up to 0.35 based on average relevance
+    return min(0.95, 0.6 + (avg_score * 0.35))

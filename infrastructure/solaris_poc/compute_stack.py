@@ -43,6 +43,7 @@ class ComputeStack(cdk.Stack):
             common_layer=None,
             vpc=vpc,
             security_group=security_group,
+            documents_bucket=documents_bucket,
             sessions_table=sessions_table,
             opensearch_domain=opensearch_domain,
             opensearch_endpoint=opensearch_endpoint,
@@ -190,6 +191,7 @@ class ComputeStack(cdk.Stack):
         vpc,
         security_group,
         sessions_table,
+        documents_bucket=None,
         opensearch_domain,
         opensearch_endpoint,
     ) -> _lambda.Function:
@@ -206,6 +208,10 @@ class ComputeStack(cdk.Stack):
                 )
             ],
         )
+
+        # Allow reading documents from S3 for generating citation links
+        if documents_bucket:
+            documents_bucket.grant_read(lambda_role)
 
         # Bedrock permissions (for LLM and embeddings)
         lambda_role.add_to_policy(
@@ -241,6 +247,16 @@ class ComputeStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
+        environment = {
+            "OPENSEARCH_ENDPOINT": opensearch_endpoint or "",
+            "OPENSEARCH_INDEX": "turbine-documents",
+            "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
+            "LLM_MODEL": "amazon.nova-pro-v1:0",
+        }
+
+        if documents_bucket:
+            environment["DOCUMENTS_BUCKET"] = documents_bucket.bucket_name
+
         # Lambda function with Docker bundling for dependencies
         lambda_function = _lambda.Function(
             self,
@@ -266,14 +282,7 @@ class ComputeStack(cdk.Stack):
             vpc=vpc,
             vpc_subnets=None,
             security_groups=[security_group] if security_group else None,
-            environment={
-                "OPENSEARCH_ENDPOINT": opensearch_endpoint or "",
-                "OPENSEARCH_INDEX": "turbine-documents",
-                "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
-                "LLM_MODEL": "amazon.nova-pro-v1:0",
-                # IAM authentication - no password needed
-                # AWS_REGION is automatically provided by Lambda runtime
-            },
+            environment=environment,
             log_group=log_group,
         )
 

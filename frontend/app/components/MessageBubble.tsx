@@ -31,15 +31,42 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 <li key={idx} className={`text-xs ${
                   isUser ? "text-white text-opacity-90" : "text-gray-700"
                 }`}>
-                  {idx + 1}. {citation.source}
-                  {citation.page && ` (Page ${citation.page})`}
-                  {citation.relevance_score !== undefined && (
-                    <span className={`ml-2 ${
-                      isUser ? "text-white text-opacity-75" : "text-gray-600"
-                    }`}>
-                      ({Math.round(citation.relevance_score * 100)}% match)
-                    </span>
-                  )}
+                  <div className="flex flex-col space-y-1">
+                    <div>
+                      <span className="font-medium mr-1">{idx + 1}.</span>
+                      {citation.url ? (
+                        <a
+                          href={citation.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`underline ${
+                            isUser ? "text-white" : "text-solaris-primary"
+                          }`}
+                        >
+                          {citation.source}
+                        </a>
+                      ) : (
+                        citation.source
+                      )}
+                      {citation.page && ` (Page ${citation.page})`}
+                      {citation.relevance_score !== undefined && (
+                        <span className={`ml-2 ${
+                          isUser ? "text-white text-opacity-75" : "text-gray-600"
+                        }`}>
+                          ({Math.round(citation.relevance_score * 100)}% match)
+                        </span>
+                      )}
+                    </div>
+                    {citation.excerpt && (
+                      <p
+                        className={`italic ${
+                          isUser ? "text-white text-opacity-80" : "text-gray-600"
+                        }`}
+                      >
+                        “{citation.excerpt}”
+                      </p>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

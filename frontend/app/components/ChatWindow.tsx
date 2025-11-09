@@ -17,6 +17,8 @@ export interface Citation {
   source: string;
   page?: number;
   relevance_score?: number;
+  excerpt?: string;
+  url?: string;
 }
 
 interface ChatWindowProps {
