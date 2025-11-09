@@ -49,6 +49,15 @@ class ComputeStack(cdk.Stack):
             opensearch_endpoint=opensearch_endpoint,
         )
 
+        # AgentCore retrieval tool Lambda
+        self.agent_retrieval_tool_lambda = self._create_agent_retrieval_tool(
+            vpc=vpc,
+            security_group=security_group,
+            documents_bucket=documents_bucket,
+            opensearch_domain=opensearch_domain,
+            opensearch_endpoint=opensearch_endpoint,
+        )
+
         # Output Lambda function ARNs
         cdk.CfnOutput(
             self,
@@ -62,6 +71,13 @@ class ComputeStack(cdk.Stack):
             "AgentWorkflowLambdaArn",
             value=self.agent_workflow_lambda.function_arn,
             description="Agent Workflow Lambda ARN",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "AgentRetrievalToolLambdaArn",
+            value=self.agent_retrieval_tool_lambda.function_arn,
+            description="AgentCore retrieval tool Lambda ARN",
         )
 
     def _create_document_processor(
@@ -279,6 +295,92 @@ class ComputeStack(cdk.Stack):
             memory_size=2048,  # Higher memory for LangGraph and LLM calls
             timeout=Duration.minutes(5),  # 5 minutes for complex reasoning
             layers=[common_layer] if common_layer else [],
+            vpc=vpc,
+            vpc_subnets=None,
+            security_groups=[security_group] if security_group else None,
+            environment=environment,
+            log_group=log_group,
+        )
+
+        return lambda_function
+
+    def _create_agent_retrieval_tool(
+        self,
+        vpc,
+        security_group,
+        documents_bucket=None,
+        opensearch_domain=None,
+        opensearch_endpoint=None,
+    ) -> _lambda.Function:
+        """Create Lambda function that backs the AgentCore retrieval tool."""
+
+        lambda_role = iam.Role(
+            self,
+            "AgentRetrievalToolRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AWSLambdaVPCAccessExecutionRole"
+                )
+            ],
+        )
+
+        if documents_bucket:
+            documents_bucket.grant_read(lambda_role)
+
+        lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["bedrock:InvokeModel"],
+                resources=[f"arn:aws:bedrock:{self.region}::foundation-model/*"],
+            )
+        )
+
+        if opensearch_domain:
+            lambda_role.add_to_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["es:*"],
+                    resources=[f"{opensearch_domain.domain_arn}/*"],
+                )
+            )
+
+        log_group = logs.LogGroup(
+            self,
+            "AgentRetrievalToolLogs",
+            log_group_name="/aws/lambda/solaris-poc-agent-retrieval-tool",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+        )
+
+        environment = {
+            "OPENSEARCH_ENDPOINT": opensearch_endpoint or "",
+            "OPENSEARCH_INDEX": "turbine-documents",
+            "EMBEDDING_MODEL": "amazon.titan-embed-text-v1",
+        }
+        if documents_bucket:
+            environment["DOCUMENTS_BUCKET"] = documents_bucket.bucket_name
+
+        lambda_function = _lambda.Function(
+            self,
+            "AgentRetrievalTool",
+            function_name="solaris-poc-agent-retrieval-tool",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="handler.lambda_handler",
+            code=_lambda.Code.from_asset(
+                "../lambda/agent-tools/retrieval",
+                bundling=BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output",
+                    ],
+                ),
+            ),
+            role=lambda_role,
+            memory_size=1024,
+            timeout=Duration.seconds(30),
             vpc=vpc,
             vpc_subnets=None,
             security_groups=[security_group] if security_group else None,
