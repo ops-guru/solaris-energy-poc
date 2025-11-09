@@ -74,12 +74,12 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         headers["x-api-key"] = apiKey;
       }
 
-      const response = await fetch(`${apiUrl}/chat`, {
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
-          query,
-          session_id: sessionId || undefined,
+          inputText: query,
+          sessionId: sessionId || undefined,
         }),
       });
 
@@ -90,20 +90,44 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
 
       const data = await response.json();
 
-      // Update session ID if provided
-      if (data.session_id && !sessionId) {
-        setSessionId(data.session_id);
-        // Store in localStorage
-        localStorage.setItem("solaris_session_id", data.session_id);
+      const nextSessionId =
+        data.sessionId || data.session_id || sessionId || null;
+      if (nextSessionId) {
+        setSessionId(nextSessionId);
+        localStorage.setItem("solaris_session_id", nextSessionId);
       }
+
+      const responseText =
+        data.outputText ||
+        data.response ||
+        data.answer ||
+        data.output?.text ||
+        data.output?.response ||
+        "I'm sorry, I couldn't generate a response.";
+
+      const citations: Citation[] =
+        data.citations ||
+        data.output?.citations ||
+        data.references ||
+        [];
+
+      const confidence =
+        data.confidenceScore ??
+        data.confidence_score ??
+        data.output?.confidenceScore ??
+        null;
+
+      const turbineModel =
+        data.turbine_model || data.turbineModel || data.metadata?.turbine_model;
 
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.response || "I'm sorry, I couldn't generate a response.",
+        content: responseText,
         timestamp: new Date().toISOString(),
-        citations: data.citations || [],
-        confidence_score: data.confidence_score,
-        turbine_model: data.turbine_model,
+        citations,
+        confidence_score:
+          typeof confidence === "number" ? Math.min(Math.max(confidence, 0), 1) : undefined,
+        turbine_model: turbineModel,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

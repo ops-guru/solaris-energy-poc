@@ -3,11 +3,10 @@
 import { ChatWindow } from "./components/ChatWindow";
 
 export default function Home() {
-  // Get API URL from environment variable or use default
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || "";
+  const agentCoreUrl = process.env.NEXT_PUBLIC_AGENTCORE_URL || "";
+  const agentCoreApiKey = process.env.NEXT_PUBLIC_AGENTCORE_API_KEY || "";
 
-  if (!apiUrl) {
+  if (!agentCoreUrl) {
     return (
       <div className="flex items-center justify-center h-screen bg-solaris-gray-light">
         <div className="text-center">
@@ -15,12 +14,12 @@ export default function Home() {
             Configuration Required
           </h1>
           <p className="text-solaris-gray-dark">
-            Please set NEXT_PUBLIC_API_URL environment variable
+            Please set NEXT_PUBLIC_AGENTCORE_URL environment variable
           </p>
         </div>
       </div>
     );
   }
 
-  return <ChatWindow apiUrl={apiUrl} apiKey={apiKey} />;
+  return <ChatWindow apiUrl={agentCoreUrl} apiKey={agentCoreApiKey} />;
 }
