@@ -192,8 +192,8 @@ class ComputeStack(cdk.Stack):
         security_group,
         sessions_table,
         documents_bucket=None,
-        opensearch_domain,
-        opensearch_endpoint,
+        opensearch_domain=None,
+        opensearch_endpoint=None,
     ) -> _lambda.Function:
         """Create agent workflow Lambda function with LangGraph."""
 
