@@ -137,6 +137,16 @@ class AgentCoreConfigStack(cdk.Stack):
         handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
+                    # New AgentCore control plane APIs surfaced under the Bedrock namespace
+                    "bedrock:CreateAgent",
+                    "bedrock:UpdateAgent",
+                    "bedrock:ListAgents",
+                    "bedrock:CreateAgentActionGroup",
+                    "bedrock:UpdateAgentActionGroup",
+                    "bedrock:ListAgentActionGroups",
+                    "bedrock:PrepareAgent",
+                    "bedrock:GetAgent",
+                    # Backward compatibility while the service transitions namespaces
                     "bedrock-agent:CreateAgent",
                     "bedrock-agent:UpdateAgent",
                     "bedrock-agent:ListAgents",
