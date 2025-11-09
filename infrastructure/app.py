@@ -5,6 +5,7 @@ from solaris_poc.network_stack import NetworkStack
 from solaris_poc.storage_stack import StorageStack
 from solaris_poc.vector_store_stack import VectorStoreStack
 from solaris_poc.compute_stack import ComputeStack
+from solaris_poc.agentcore_stack import AgentCoreConfigStack
 from solaris_poc.api_stack import ApiStack
 # TODO: Implement remaining stacks
 # from solaris_poc.bedrock_stack import BedrockStack
@@ -54,6 +55,14 @@ api_stack = ApiStack(
     app,
     "ApiStack",
     agent_workflow_lambda=compute_stack.agent_workflow_lambda,
+    env=env,
+)
+
+AgentCoreConfigStack(
+    app,
+    "AgentCoreStack",
+    retrieval_tool_lambda=compute_stack.agent_retrieval_tool_lambda,
+    documents_bucket=storage_stack.documents_bucket,
     env=env,
 )
 

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "2024-10-01",
+  "agentName": "solaris-operator-assistant",
+  "description": "Conversational assistant for Solaris Energy field engineers providing retrieval-augmented answers from turbine manuals.",
+  "defaultModelId": "amazon.nova-pro-v1:0",
+  "instructions": "You are the Solaris Operator Assistant. Use the retrieval tool to answer questions about turbine operations, maintenance, and safety. Always cite the exact manual and page number. If the manuals do not contain the answer, clearly state that the documentation does not cover the request. Prefer the most relevant turbine model based on the conversation.",
+  "responseStyle": {
+    "citationFormat": "markdown",
+    "includeConfidence": true
+  },
+  "tools": [
+    {
+      "name": "RetrieveManualChunks",
+      "type": "lambda",
+      "description": "Retrieves relevant manual excerpts with citations for Solaris turbines.",
+      "lambdaArn": "{{RETRIEVAL_TOOL_ARN}}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "User query to retrieve supporting documentation for."
+          },
+          "filters": {
+            "type": "object",
+            "description": "Optional filters for turbine model or document type.",
+            "properties": {
+              "turbine_model": {
+                "type": "string",
+                "description": "Filter to a specific turbine model (e.g., SMT60, SMT130, TM2500)."
+              },
+              "document_type": {
+                "type": "string",
+                "description": "Filter by document classification (technical-specs, operational, maintenance, safety, reference)."
+              }
+            },
+            "additionalProperties": false
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Maximum number of citations to return.",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
+
