@@ -23,6 +23,13 @@ except ImportError:
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Standard CORS headers for API Gateway proxy integration
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type,X-Api-Key",
+    "Access-Control-Allow-Methods": "OPTIONS,GET,POST",
+}
+
 # Environment variables
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", "")
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "turbine-documents")
@@ -143,7 +150,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not query:
             return {
                 "statusCode": 400,
-                "headers": {"Access-Control-Allow-Origin": "*"},
+                "headers": CORS_HEADERS,
                 "body": json.dumps({"error": "Query is required"}),
             }
         
@@ -241,7 +248,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         return {
             "statusCode": 200,
-            "headers": {"Access-Control-Allow-Origin": "*"},
+            "headers": CORS_HEADERS,
             "body": json.dumps(response_data),
         }
         
@@ -249,7 +256,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"Lambda handler error: {str(e)}", exc_info=True)
         return {
             "statusCode": 500,
-            "headers": {"Access-Control-Allow-Origin": "*"},
+            "headers": CORS_HEADERS,
             "body": json.dumps({
                 "error": str(e),
                 "session_id": event.get("session_id", "unknown"),

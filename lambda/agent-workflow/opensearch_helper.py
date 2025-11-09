@@ -8,6 +8,7 @@ import boto3
 import logging
 from typing import Any, Dict, List, Optional
 from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy.exceptions import ConnectionTimeout
 from requests_aws4auth import AWS4Auth
 
 logger = logging.getLogger(__name__)
@@ -135,14 +136,14 @@ def search_documents(
                             }
                         },
                         # Keyword search (BM25)
-                                            {
-                        "multi_match": {
-                            "query": query,
-                            "fields": ["text^2", "source"],
-                            "type": "best_fields",
-                            "fuzziness": "AUTO",
-                        }
-                    },
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": ["text^2", "source"],
+                                "type": "best_fields",
+                                "fuzziness": "AUTO",
+                            }
+                        },
                     ],
                     "must": [],
                     "minimum_should_match": 1,
@@ -168,7 +169,11 @@ def search_documents(
                 search_query["query"]["bool"]["must"] = filter_clauses
         
         # Execute search
-        response = client.search(index=index, body=search_query)
+        response = client.search(
+            index=index,
+            body=search_query,
+            request_timeout=10,
+        )
         
         # Format results
         results = []
@@ -177,7 +182,7 @@ def search_documents(
             results.append({
                 "content": source.get("text", ""),
                 "source": source.get("source", "Unknown"),
-                "page": source.get("metadata", {}).get("chunk_index"),
+                "page": source.get("metadata", {}).get("page"),
                 "turbine_model": source.get("turbine_model"),
                 "document_type": source.get("document_type"),
                 "score": hit.get("_score", 0.0),
@@ -187,6 +192,9 @@ def search_documents(
         logger.info(f"Search returned {len(results)} results for query: {query[:50]}")
         return results
         
+    except ConnectionTimeout as timeout_error:
+        logger.warning("OpenSearch query timed out: %s", timeout_error)
+        return []
     except Exception as e:
         logger.error(f"Search error: {str(e)}", exc_info=True)
         return []
