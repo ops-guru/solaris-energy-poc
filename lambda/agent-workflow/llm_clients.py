@@ -24,6 +24,10 @@ def get_bedrock_client(region: str = "us-east-1"):
     return boto3.client("bedrock-runtime", region_name=region)
 
 
+def _text_content(text: str) -> Dict[str, str]:
+    return {"type": "text", "text": text}
+
+
 def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
     """
     Format conversation history for Bedrock API.
@@ -41,7 +45,7 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
             formatted.append(
                 {
                     "role": msg.role,
-                    "content": [{"text": msg.content}],
+                    "content": [_text_content(getattr(msg, "content", ""))],
                 }
             )
         elif isinstance(msg, dict):
@@ -49,7 +53,7 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
             formatted.append(
                 {
                     "role": msg.get("role", "user"),
-                    "content": [{"text": msg.get("content", "")}],
+                    "content": [_text_content(str(msg.get("content", "")))],
                 }
             )
     return formatted
@@ -82,7 +86,7 @@ def invoke_llm(
     try:
         formatted_history = format_conversation_history(conversation_history or [])
         messages = formatted_history + [
-            {"role": "user", "content": [{"text": user_prompt}]}
+            {"role": "user", "content": [_text_content(user_prompt)]}
         ]
 
         # Determine API format based on model
@@ -99,10 +103,10 @@ def invoke_llm(
             body = {
                 "messages": [{
                     "role": "system",
-                    "content": [{"text": system_prompt}],
+                    "content": [_text_content(system_prompt)],
                 }] + messages,
-                "textGenerationConfig": {
-                    "maxTokenCount": max_tokens,
+                "inferenceConfig": {
+                    "maxTokens": max_tokens,
                     "temperature": temperature,
                 },
             }
