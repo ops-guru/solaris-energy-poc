@@ -77,22 +77,11 @@ class AgentCoreConfigStack(cdk.Stack):
         )
         retrieval_tool_lambda.grant_invoke(agent_resource_role)
 
-        agent_session_role = iam.Role(
-            self,
-            "AgentCoreSessionRole",
-            assumed_by=iam.ServicePrincipal("bedrock.amazonaws.com"),
-            description="Session role for AgentCore interactions.",
-        )
-        agent_session_role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockFullAccess")
-        )
-
         custom_resource = self._provision_agent_core(
             agent_name=agent_name,
             agent_definition=definition,
             retrieval_tool_lambda=retrieval_tool_lambda,
             agent_resource_role=agent_resource_role,
-            agent_session_role=agent_session_role,
         )
 
         cdk.CfnOutput(
@@ -107,6 +96,13 @@ class AgentCoreConfigStack(cdk.Stack):
             "AgentCoreAgentId",
             value=custom_resource.get_att_string("AgentId"),
             description="Provisioned AgentCore agent ID",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "AgentCoreResourceRoleArn",
+            value=agent_resource_role.role_arn,
+            description="IAM role assumed by AgentCore for resource access",
         )
 
     def _load_agent_definition_template(
@@ -128,27 +124,12 @@ class AgentCoreConfigStack(cdk.Stack):
 
         return template
 
-        cdk.CfnOutput(
-            self,
-            "AgentCoreResourceRoleArn",
-            value=agent_resource_role.role_arn,
-            description="IAM role assumed by AgentCore for resource access",
-        )
-
-        cdk.CfnOutput(
-            self,
-            "AgentCoreSessionRoleArn",
-            value=agent_session_role.role_arn,
-            description="IAM role assumed by AgentCore sessions",
-        )
-
     def _provision_agent_core(
         self,
         agent_name: str,
         agent_definition: dict[str, object],
         retrieval_tool_lambda: _lambda.IFunction,
         agent_resource_role: iam.Role,
-        agent_session_role: iam.Role,
     ) -> cdk.CustomResource:
         """Create the custom resource that provisions the AgentCore agent."""
         handler = _lambda.Function(
@@ -212,7 +193,6 @@ class AgentCoreConfigStack(cdk.Stack):
                 "AgentName": agent_name,
                 "RetrievalLambdaArn": retrieval_tool_lambda.function_arn,
                 "AgentResourceRoleArn": agent_resource_role.role_arn,
-                "AgentSessionRoleArn": agent_session_role.role_arn,
                 "AgentDefinition": json.dumps(agent_definition),
             },
         )
