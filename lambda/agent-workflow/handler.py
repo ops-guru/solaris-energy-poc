@@ -93,6 +93,20 @@ DISALLOWED_KEYWORDS = {
     "politics",
 }
 
+ALLOWED_INTENTS = {
+    "maintenance",
+    "operations",
+    "troubleshooting",
+    "safety",
+    "specifications",
+    "ordering",
+    "procurement",
+    "cost",
+    "pricing",
+    "parts",
+    "logistics",
+}
+
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,X-Requested-With,X-Api-Key",
@@ -280,6 +294,11 @@ def ensure_errors(state: AgentState) -> List[str]:
 def contains_disallowed_content(text: str) -> bool:
     lowered = text.lower()
     return any(keyword in lowered for keyword in DISALLOWED_KEYWORDS)
+
+
+def is_supported_intent(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in ALLOWED_INTENTS)
 
 
 def get_model_entry(model_key: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -731,6 +750,24 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "grok_invoked": False,
         }
         errors.append("Insufficient supporting documentation for response.")
+        return {
+            "llm_response": refusal,
+            "response_metadata": response_metadata,
+            "errors": errors,
+        }
+
+    if not is_supported_intent(state.get("query", "")):
+        refusal = (
+            "That topic is outside the scope of the Solaris operator assistant. "
+            "Please ask about preventative maintenance, operations, or parts for supported turbines."
+        )
+        response_metadata = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "model_key": "unsupported_intent",
+            "model_display": "Intent Filter",
+            "grok_invoked": False,
+        }
+        errors.append("Query intent outside supported scope.")
         return {
             "llm_response": refusal,
             "response_metadata": response_metadata,
