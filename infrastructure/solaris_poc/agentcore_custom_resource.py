@@ -33,8 +33,8 @@ class AgentCoreProvisioner:
 
     def ensure_agent(self) -> Dict[str, Any]:
         """Create or update the agent and associated retrieval action group."""
-        agent_id = self._create_or_update_agent()
-        action_group_arn = self._create_or_update_action_group(agent_id)
+        agent_id, agent_version = self._create_or_update_agent()
+        action_group_arn = self._create_or_update_action_group(agent_id, agent_version)
         endpoint = self._prepare_agent(agent_id)
 
         data = {
@@ -47,7 +47,7 @@ class AgentCoreProvisioner:
 
     # --- internal helpers ---
 
-    def _create_or_update_agent(self) -> str:
+    def _create_or_update_agent(self) -> tuple[str, str]:
         """Create the agent if it does not exist, otherwise update."""
         try:
             response = self.client.list_agents()
@@ -73,7 +73,9 @@ class AgentCoreProvisioner:
                 description=description,
                 agentResourceRoleArn=self.agent_resource_role_arn,
             )
-            return agent_id
+            agent_description = self.client.get_agent(agentId=agent_id)
+            agent_version = agent_description["agent"]["agentVersion"]
+            return agent_id, agent_version
 
         logger.info("Creating new AgentCore agent %s", self.agent_name)
         response = self.client.create_agent(
@@ -83,11 +85,15 @@ class AgentCoreProvisioner:
             description=description,
             agentResourceRoleArn=self.agent_resource_role_arn,
         )
-        return response["agent"]["agentId"]
+        agent = response["agent"]
+        return agent["agentId"], agent["agentVersion"]
 
-    def _create_or_update_action_group(self, agent_id: str) -> str:
+    def _create_or_update_action_group(self, agent_id: str, agent_version: str) -> str:
         """Create or update the retrieval tool action group."""
-        action_groups = self.client.list_agent_action_groups(agentId=agent_id)
+        action_groups = self.client.list_agent_action_groups(
+            agentId=agent_id,
+            agentVersion=agent_version,
+        )
         existing = next(
             (
                 group
@@ -109,6 +115,7 @@ class AgentCoreProvisioner:
             logger.info("Updating existing action group for agent %s", agent_id)
             self.client.update_agent_action_group(
                 agentId=agent_id,
+                agentVersion=agent_version,
                 agentActionGroupId=existing["agentActionGroupId"],
                 agentActionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
@@ -120,6 +127,7 @@ class AgentCoreProvisioner:
         logger.info("Creating action group for agent %s", agent_id)
         response = self.client.create_agent_action_group(
             agentId=agent_id,
+            agentVersion=agent_version,
             agentActionGroupName="RetrieveManualChunks",
             description="Retrieves relevant turbine manual excerpts with citations.",
             actionGroupExecutor=executor,
