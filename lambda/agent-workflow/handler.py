@@ -449,6 +449,17 @@ def normalize_citations(documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     return citations
 
 
+def screened_citations(citations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    filtered: List[Dict[str, Any]] = []
+    for citation in citations:
+        source = citation.get("source", "").lower()
+        excerpt = (citation.get("excerpt") or "").lower()
+        if contains_disallowed_content(source + " " + excerpt):
+            continue
+        filtered.append(citation)
+    return filtered
+
+
 def combine_confidence(document_citations: List[Dict[str, Any]], data_points: List[Dict[str, Any]]) -> float:
     """
     Blend retrieval relevance with data availability to form a confidence score.
@@ -736,6 +747,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "llm_response": refusal,
             "response_metadata": response_metadata,
             "errors": errors,
+            "citations": screened_citations(citations),
         }
 
     if not has_reliable_context(documents):
@@ -754,6 +766,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "llm_response": refusal,
             "response_metadata": response_metadata,
             "errors": errors,
+            "citations": screened_citations(citations),
         }
 
     if not is_supported_intent(state.get("query", "")):
@@ -772,6 +785,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "llm_response": refusal,
             "response_metadata": response_metadata,
             "errors": errors,
+            "citations": screened_citations(citations),
         }
 
     primary_model_key = resolve_model_key()
@@ -836,7 +850,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
 
 def response_validator(state: AgentState) -> AgentState:
     errors = ensure_errors(state)
-    citations = state.get("citations", [])
+    citations = screened_citations(state.get("citations", []))
     data_points = state.get("data_points", [])
     llm_response = state.get("llm_response", "")
 
