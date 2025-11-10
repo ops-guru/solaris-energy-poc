@@ -103,7 +103,7 @@ class AgentCoreProvisioner:
         existing = next(
             (
                 group
-                for group in action_groups.get("agentActionGroupSummaries", [])
+                for group in action_groups.get("actionGroupSummaries", [])
                 if group.get("actionGroupName") == "RetrieveManualChunks"
             ),
             None,
