@@ -36,11 +36,13 @@ class AgentCoreProvisioner:
         action_group_arn = self._create_or_update_action_group(agent_id)
         endpoint = self._prepare_agent(agent_id)
 
-        return {
+        data = {
             "AgentId": agent_id,
             "ActionGroupArn": action_group_arn,
-            "AgentEndpoint": endpoint or agent_id,
         }
+        if endpoint:
+            data["AgentEndpoint"] = endpoint
+        return data
 
     # --- internal helpers ---
 
