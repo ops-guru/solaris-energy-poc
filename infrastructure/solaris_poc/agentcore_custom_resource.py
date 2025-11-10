@@ -115,8 +115,10 @@ class AgentCoreProvisioner:
 
         tool_definition = self.agent_definition["tools"][0]
         input_schema = tool_definition.get("inputSchema", {}) or {"type": "object"}
-        if "type" not in input_schema:
-            input_schema = {"type": "object", "properties": {}}
+        if not isinstance(input_schema, dict):
+            input_schema = {"type": "object"}
+        input_schema.setdefault("type", "object")
+        input_schema.setdefault("properties", {})
         open_api_schema = {
             "openapi": "3.0.1",
             "info": {
@@ -124,7 +126,7 @@ class AgentCoreProvisioner:
                 "version": "1.0.0",
             },
             "paths": {
-                "/retrieveManualChunks": {
+                "/invoke": {
                     "post": {
                         "summary": tool_definition.get("description", "Agent action invocation"),
                         "operationId": tool_definition.get("name", "InvokeAction"),
@@ -132,7 +134,7 @@ class AgentCoreProvisioner:
                             "required": True,
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/Request"},
+                                    "schema": input_schema,
                                 }
                             },
                         },
@@ -141,21 +143,15 @@ class AgentCoreProvisioner:
                                 "description": "Successful invocation",
                                 "content": {
                                     "application/json": {
-                                        "schema": {"$ref": "#/components/schemas/Response"},
+                                        "schema": {
+                                            "type": "object",
+                                            "additionalProperties": True,
+                                        },
                                     }
                                 },
                             }
                         },
                     }
-                }
-            },
-            "components": {
-                "schemas": {
-                    "Request": input_schema,
-                    "Response": {
-                        "type": "object",
-                        "additionalProperties": True,
-                    },
                 }
             },
         }
