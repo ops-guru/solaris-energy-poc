@@ -24,8 +24,19 @@ def get_bedrock_client(region: str = "us-east-1"):
     return boto3.client("bedrock-runtime", region_name=region)
 
 
+ALLOWED_ROLES = {"user", "assistant"}
+
+
 def _text_content(text: str) -> Dict[str, str]:
     return {"type": "text", "text": text}
+
+
+def _normalize_role(role: str) -> str:
+    lowered = (role or "user").lower()
+    if lowered in ALLOWED_ROLES:
+        return lowered
+    # Treat anything else (including "system") as assistant narration
+    return "assistant"
 
 
 def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
@@ -44,7 +55,7 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
             # Pydantic model
             formatted.append(
                 {
-                    "role": msg.role,
+                    "role": _normalize_role(getattr(msg, "role", "user")),
                     "content": [_text_content(getattr(msg, "content", ""))],
                 }
             )
@@ -52,7 +63,7 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
             # Dict
             formatted.append(
                 {
-                    "role": msg.get("role", "user"),
+                    "role": _normalize_role(str(msg.get("role", "user"))),
                     "content": [_text_content(str(msg.get("content", "")))],
                 }
             )
@@ -101,10 +112,8 @@ def invoke_llm(
             }
         elif "nova" in model_id.lower():
             body = {
-                "messages": [{
-                    "role": "system",
-                    "content": [_text_content(system_prompt)],
-                }] + messages,
+                "system": [_text_content(system_prompt)],
+                "messages": messages,
                 "inferenceConfig": {
                     "maxTokens": max_tokens,
                     "temperature": temperature,
