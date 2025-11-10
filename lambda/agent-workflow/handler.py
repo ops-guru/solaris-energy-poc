@@ -477,10 +477,7 @@ def combine_confidence(document_citations: List[Dict[str, Any]], data_points: Li
 
 
 def has_reliable_context(documents: List[Dict[str, Any]]) -> bool:
-    if not documents:
-        return False
-    best_score = max(doc.get("score", 0.0) for doc in documents)
-    return best_score >= 0.4
+    return bool(documents)
 
 
 def call_grok_api(payload: Dict[str, Any]) -> Optional[str]:
@@ -751,23 +748,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
         }
 
     if not has_reliable_context(documents):
-        refusal = (
-            "I do not have that information in the Solaris documentation. "
-            "Please consult a supervisor or upload the relevant manual."
-        )
-        response_metadata = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "model_key": "insufficient_context",
-            "model_display": "RAG Context Check",
-            "grok_invoked": False,
-        }
         errors.append("Insufficient supporting documentation for response.")
-        return {
-            "llm_response": refusal,
-            "response_metadata": response_metadata,
-            "errors": errors,
-            "citations": screened_citations(citations),
-        }
 
     primary_model_key = resolve_model_key()
     primary_entry = get_model_entry(primary_model_key)
