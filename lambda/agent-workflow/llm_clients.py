@@ -24,7 +24,7 @@ def get_bedrock_client(region: str = "us-east-1"):
     return boto3.client("bedrock-runtime", region_name=region)
 
 
-def format_conversation_history(messages: List[Any]) -> List[Dict[str, str]]:
+def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
     """
     Format conversation history for Bedrock API.
     
@@ -38,16 +38,20 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, str]]:
     for msg in messages:
         if hasattr(msg, "role") and hasattr(msg, "content"):
             # Pydantic model
-            formatted.append({
-                "role": msg.role,
-                "content": [{"text": msg.content}],
-            })
+            formatted.append(
+                {
+                    "role": msg.role,
+                    "content": [{"text": msg.content}],
+                }
+            )
         elif isinstance(msg, dict):
             # Dict
-            formatted.append({
-                "role": msg.get("role", "user"),
-                "content": [{"text": msg.get("content", "")}],
-            })
+            formatted.append(
+                {
+                    "role": msg.get("role", "user"),
+                    "content": [{"text": msg.get("content", "")}],
+                }
+            )
     return formatted
 
 
@@ -76,24 +80,11 @@ def invoke_llm(
         Generated response text
     """
     try:
-        # Format messages
-        messages = []
-        
-        # Add conversation history (excluding last user message if it's the current prompt)
-        if conversation_history:
-            for msg in conversation_history:
-                if hasattr(msg, "role") and hasattr(msg, "content"):
-                    messages.append({
-                        "role": msg.role if msg.role != "system" else "user",
-                        "content": [{"text": msg.content}],
-                    })
-        
-        # Add current user prompt
-        messages.append({
-            "role": "user",
-            "content": [{"text": user_prompt}],
-        })
-        
+        formatted_history = format_conversation_history(conversation_history or [])
+        messages = formatted_history + [
+            {"role": "user", "content": [{"text": user_prompt}]}
+        ]
+
         # Determine API format based on model
         if "claude" in model_id.lower():
             # Claude 3.x format
@@ -104,9 +95,18 @@ def invoke_llm(
                 "system": system_prompt,
                 "messages": messages,
             }
-        elif "nova" in model_id.lower() or "amazon.titan" in model_id.lower():
-            # Titan/Nova format
-            # For simplicity, combine system and user prompts
+        elif "nova" in model_id.lower():
+            body = {
+                "messages": [{
+                    "role": "system",
+                    "content": [{"text": system_prompt}],
+                }] + messages,
+                "textGenerationConfig": {
+                    "maxTokenCount": max_tokens,
+                    "temperature": temperature,
+                },
+            }
+        elif "amazon.titan" in model_id.lower():
             combined_prompt = f"{system_prompt}\n\n{user_prompt}"
             body = {
                 "inputText": combined_prompt,
