@@ -162,12 +162,9 @@ def invoke_llm(
         # Parse response
         response_body = json.loads(response["body"].read())
         logger.info(
-            "LLM raw response",
-            extra={
-                "model_id": model_id,
-                "response_keys": list(response_body.keys()),
-                "response_body": response_body,
-            },
+            "LLM raw response for %s: %s",
+            model_id,
+            json.dumps(response_body)[:4000],
         )
         
         # Extract text based on model type
@@ -186,7 +183,41 @@ def invoke_llm(
             # Titan/Nova returns results array
             results = response_body.get("results", [])
             if results:
-                return results[0].get("outputText", "")
+                first = results[0]
+                output_text = first.get("outputText")
+                if output_text:
+                    return output_text
+                output = first.get("output")
+                if isinstance(output, dict):
+                    message = output.get("message")
+                    if isinstance(message, dict):
+                        content = message.get("content", [])
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict):
+                                text_val = item.get("text") or item.get("value")
+                                if text_val:
+                                    text_parts.append(text_val)
+                        if text_parts:
+                            return "".join(text_parts)
+                # Some payloads return top-level output array
+                output_items = first.get("output", [])
+                if isinstance(output_items, list):
+                    text_parts = []
+                    for item in output_items:
+                        if isinstance(item, dict):
+                            text_val = item.get("text") or item.get("value")
+                            if text_val:
+                                text_parts.append(text_val)
+                    if text_parts:
+                        return "".join(text_parts)
+                logger.warning(
+                    "Nova results missing text content",
+                    extra={
+                        "model_id": model_id,
+                        "result_keys": list(first.keys()),
+                    },
+                )
             logger.warning(
                 "LLM empty results",
                 extra={
