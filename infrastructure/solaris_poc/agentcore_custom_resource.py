@@ -157,7 +157,7 @@ class AgentCoreProvisioner:
             self.client.update_agent_action_group(
                 agentId=agent_id,
                 agentVersion=agent_version,
-                agentActionGroupId=existing["actionGroupId"],
+                actionGroupId=existing["actionGroupId"],
                 actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
                 description="Retrieves relevant manual excerpts with citations.",
@@ -179,7 +179,7 @@ class AgentCoreProvisioner:
         detail = self.client.get_agent_action_group(
             agentId=agent_id,
             agentVersion=agent_version,
-            agentActionGroupId=action_group_id,
+            actionGroupId=action_group_id,
         )
         agent_action_group = detail.get("agentActionGroup", {})
         return agent_action_group.get("agentActionGroupArn", action_group_id)
