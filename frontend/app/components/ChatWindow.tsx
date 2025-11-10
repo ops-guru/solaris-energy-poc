@@ -60,8 +60,8 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
       content: query,
       timestamp: new Date().toISOString(),
     };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setIsLoading(true);
     setError(null);
 
@@ -74,12 +74,19 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         headers["x-api-key"] = apiKey;
       }
 
+      const payloadMessages = updatedMessages.map(({ role, content }) => ({
+        role,
+        content,
+      }));
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
           inputText: query,
           sessionId: sessionId || undefined,
+          session_id: sessionId || undefined,
+          messages: payloadMessages,
         }),
       });
 
