@@ -129,7 +129,17 @@ def invoke_llm(
                 },
             }
         else:
-            # Default to Claude format
+            # Default to Claude-style formatting
+            messages = [
+                {
+                    "role": entry["role"],
+                    "content": [{"type": "text", "text": entry["text"]}],
+                }
+                for entry in formatted_history
+            ]
+            messages.append(
+                {"role": "user", "content": [{"type": "text", "text": user_prompt}]}
+            )
             body = {
                 "anthropic_version": "bedrock-2023-05-31",
                 "max_tokens": max_tokens,
@@ -148,6 +158,14 @@ def invoke_llm(
         
         # Parse response
         response_body = json.loads(response["body"].read())
+        logger.info(
+            "LLM raw response",
+            extra={
+                "model_id": model_id,
+                "response_keys": list(response_body.keys()),
+                "response_body": response_body,
+            },
+        )
         
         # Extract text based on model type
         if "claude" in model_id.lower():
@@ -166,6 +184,13 @@ def invoke_llm(
             results = response_body.get("results", [])
             if results:
                 return results[0].get("outputText", "")
+            logger.warning(
+                "LLM empty results",
+                extra={
+                    "model_id": model_id,
+                    "response_body": response_body,
+                },
+            )
             return ""
         else:
             # Fallback
