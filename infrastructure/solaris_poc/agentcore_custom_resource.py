@@ -160,21 +160,29 @@ class AgentCoreProvisioner:
                 agentActionGroupId=existing["agentActionGroupId"],
                 actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
-                description="Retrieves relevant turbine manual excerpts with citations.",
+                description="Retrieves relevant manual excerpts with citations.",
                 functionSchema=function_schema,
             )
-            return existing["agentActionGroupArn"]
+            action_group_id = existing["agentActionGroupId"]
+        else:
+            logger.info("Creating action group for agent %s", agent_id)
+            response = self.client.create_agent_action_group(
+                agentId=agent_id,
+                agentVersion=agent_version,
+                actionGroupName="RetrieveManualChunks",
+                description="Retrieves relevant manual excerpts with citations.",
+                actionGroupExecutor=executor,
+                functionSchema=function_schema,
+            )
+            action_group_id = response["agentActionGroup"]["agentActionGroupId"]
 
-        logger.info("Creating action group for agent %s", agent_id)
-        response = self.client.create_agent_action_group(
+        detail = self.client.get_agent_action_group(
             agentId=agent_id,
             agentVersion=agent_version,
-            actionGroupName="RetrieveManualChunks",
-            description="Retrieves relevant turbine manual excerpts with citations.",
-            actionGroupExecutor=executor,
-            functionSchema=function_schema,
+            agentActionGroupId=action_group_id,
         )
-        return response["agentActionGroup"]["agentActionGroupArn"]
+        agent_action_group = detail.get("agentActionGroup", {})
+        return agent_action_group.get("agentActionGroupArn", action_group_id)
 
     def _prepare_agent(self, agent_id: str) -> str:
         """Publish the agent to make it invokable and return the endpoint."""
