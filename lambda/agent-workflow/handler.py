@@ -69,6 +69,12 @@ GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID")
 GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "1")
 MIN_CONFIDENCE_SCORE = float(os.environ.get("MIN_CONFIDENCE_SCORE", "0.75"))
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type,X-Requested-With,X-Api-Key",
+    "Access-Control-Allow-Methods": "OPTIONS,POST",
+}
+
 # Model selection configuration
 DEFAULT_MODEL_CONFIG = {
     "default_model": "nova_pro",
