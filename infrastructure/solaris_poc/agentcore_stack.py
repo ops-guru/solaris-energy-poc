@@ -161,6 +161,7 @@ class AgentCoreConfigStack(cdk.Stack):
                     "bedrock:CreateAgentActionGroup",
                     "bedrock:UpdateAgentActionGroup",
                     "bedrock:ListAgentActionGroups",
+                    "bedrock:GetAgentActionGroup",
                     "bedrock:PrepareAgent",
                     "bedrock:GetAgent",
                     # Backward compatibility while the service transitions namespaces
@@ -170,6 +171,7 @@ class AgentCoreConfigStack(cdk.Stack):
                     "bedrock-agent:CreateAgentActionGroup",
                     "bedrock-agent:UpdateAgentActionGroup",
                     "bedrock-agent:ListAgentActionGroups",
+                    "bedrock-agent:GetAgentActionGroup",
                     "bedrock-agent:PrepareAgent",
                     "bedrock-agent:GetAgent",
                 ],
