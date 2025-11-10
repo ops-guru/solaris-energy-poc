@@ -117,43 +117,39 @@ class AgentCoreProvisioner:
         input_schema = tool_definition.get("inputSchema", {}) or {"type": "object"}
         if not isinstance(input_schema, dict):
             input_schema = {"type": "object"}
-        input_schema.setdefault("type", "object")
-        input_schema.setdefault("properties", {})
-        open_api_schema = {
-            "openapi": "3.0.1",
-            "info": {
-                "title": f"{tool_definition.get('name', 'Action')} schema",
-                "version": "1.0.0",
-            },
-            "paths": {
-                "/invoke": {
-                    "post": {
-                        "summary": tool_definition.get("description", "Agent action invocation"),
-                        "operationId": tool_definition.get("name", "InvokeAction"),
-                        "requestBody": {
-                            "required": True,
-                            "content": {
-                                "application/json": {
-                                    "schema": input_schema,
-                                }
-                            },
-                        },
-                        "responses": {
-                            "200": {
-                                "description": "Successful invocation",
-                                "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "type": "object",
-                                            "additionalProperties": True,
-                                        },
-                                    }
-                                },
-                            }
-                        },
-                    }
+        properties = input_schema.get("properties", {})
+        required = set(input_schema.get("required", []))
+
+        def resolve_type(prop: dict) -> str:
+            prop_type = prop.get("type", "string")
+            if isinstance(prop_type, list):
+                prop_type = prop_type[0] if prop_type else "string"
+            return {
+                "string": "string",
+                "number": "number",
+                "integer": "integer",
+                "boolean": "boolean",
+                "array": "array",
+            }.get(prop_type, "string")
+
+        function_schema = {
+            "functions": [
+                {
+                    "name": tool_definition.get("name", "RetrieveManualChunks"),
+                    "description": tool_definition.get(
+                        "description", "Retrieves relevant manual excerpts with citations."
+                    ),
+                    "requireConfirmation": "DISABLED",
+                    "parameters": {
+                        name: {
+                            "description": spec.get("description", ""),
+                            "type": resolve_type(spec),
+                            "required": name in required,
+                        }
+                        for name, spec in properties.items()
+                    },
                 }
-            },
+            ]
         }
 
         if existing:
@@ -165,7 +161,7 @@ class AgentCoreProvisioner:
                 actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
                 description="Retrieves relevant turbine manual excerpts with citations.",
-                apiSchema={"payload": json.dumps(open_api_schema)},
+                functionSchema=function_schema,
             )
             return existing["agentActionGroupArn"]
 
@@ -176,7 +172,7 @@ class AgentCoreProvisioner:
             actionGroupName="RetrieveManualChunks",
             description="Retrieves relevant turbine manual excerpts with citations.",
             actionGroupExecutor=executor,
-            apiSchema={"payload": json.dumps(open_api_schema)},
+            functionSchema=function_schema,
         )
         return response["agentActionGroup"]["agentActionGroupArn"]
 
