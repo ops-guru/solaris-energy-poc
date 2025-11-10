@@ -196,8 +196,86 @@ def search_documents(
         return results
         
     except (ConnectionTimeout, ReadTimeout) as timeout_error:
-        logger.warning("OpenSearch query timed out: %s", timeout_error)
-        return []
+        logger.warning("OpenSearch query timed out: %s; retrying with keyword-only fallback", timeout_error)
+        return _keyword_fallback_search(
+            client=client,
+            index=index,
+            query=query,
+            filters=filters,
+            top_k=top_k,
+        )
     except Exception as e:
         logger.error(f"Search error: {str(e)}", exc_info=True)
+        return _keyword_fallback_search(
+            client=client,
+            index=index,
+            query=query,
+            filters=filters,
+            top_k=top_k,
+        )
+
+
+def _keyword_fallback_search(
+    client: OpenSearch,
+    index: str,
+    query: str,
+    filters: Optional[Dict[str, Any]],
+    top_k: int,
+) -> List[Dict[str, Any]]:
+    """Fallback search using keyword-only query for resiliency."""
+    keyword_query: Dict[str, Any] = {
+        "size": max(3, min(top_k, 5)),
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["text^3", "metadata.section_path", "source"],
+                            "type": "best_fields",
+                            "fuzziness": "AUTO",
+                        }
+                    }
+                ],
+                "filter": [],
+            }
+        },
+        "_source": ["text", "metadata", "source", "turbine_model", "document_type"],
+    }
+
+    if filters:
+        for key, value in filters.items():
+            if key == "turbine_model":
+                keyword_query["query"]["bool"]["filter"].append({"term": {"turbine_model": value}})
+            elif key == "document_type":
+                keyword_query["query"]["bool"]["filter"].append({"term": {"document_type": value}})
+            else:
+                keyword_query["query"]["bool"]["filter"].append({"term": {f"metadata.{key}.keyword": value}})
+
+    try:
+        response = client.search(
+            index=index,
+            body=keyword_query,
+            request_timeout=6,
+        )
+    except Exception as exc:
+        logger.error("Fallback keyword search failed: %s", exc, exc_info=True)
         return []
+
+    results: List[Dict[str, Any]] = []
+    for hit in response.get("hits", {}).get("hits", []):
+        source = hit.get("_source", {})
+        results.append(
+            {
+                "content": source.get("text", ""),
+                "source": source.get("source", "Unknown"),
+                "page": source.get("metadata", {}).get("page"),
+                "turbine_model": source.get("turbine_model"),
+                "document_type": source.get("document_type"),
+                "score": hit.get("_score", 0.0),
+                "metadata": source.get("metadata", {}),
+            }
+        )
+
+    logger.info("Fallback keyword search returned %d results for query '%s'", len(results), query[:50])
+    return results
