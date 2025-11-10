@@ -769,25 +769,6 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "citations": screened_citations(citations),
         }
 
-    if not is_supported_intent(state.get("query", "")):
-        refusal = (
-            "That topic is outside the scope of the Solaris operator assistant. "
-            "Please ask about preventative maintenance, operations, or parts for supported turbines."
-        )
-        response_metadata = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "model_key": "unsupported_intent",
-            "model_display": "Intent Filter",
-            "grok_invoked": False,
-        }
-        errors.append("Query intent outside supported scope.")
-        return {
-            "llm_response": refusal,
-            "response_metadata": response_metadata,
-            "errors": errors,
-            "citations": screened_citations(citations),
-        }
-
     primary_model_key = resolve_model_key()
     primary_entry = get_model_entry(primary_model_key)
     used_model_key = primary_model_key
