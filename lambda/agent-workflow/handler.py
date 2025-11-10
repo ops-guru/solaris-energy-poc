@@ -790,6 +790,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     else:
         payload = event
 
+    if "query" not in payload and "inputText" in payload:
+        payload["query"] = payload["inputText"]
+
     session_id = payload.get("session_id") or f"session-{datetime.now(timezone.utc).isoformat()}"
     query = payload.get("query")
     messages = payload.get("messages", [])
