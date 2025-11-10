@@ -85,8 +85,8 @@ class AgentCoreConfigStack(cdk.Stack):
         cdk.CfnOutput(
             self,
             "AgentCoreEndpoint",
-            value=custom_resource.get_att_string("AgentEndpoint"),
-            description="AgentCore invocation endpoint or ARN",
+            value=custom_resource.get_att_string("AgentId"),
+            description="AgentCore invocation identifier (use GetAgent to resolve ARN)",
         )
 
     def _load_agent_definition_template(
