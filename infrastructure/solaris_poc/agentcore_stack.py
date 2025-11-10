@@ -77,7 +77,7 @@ class AgentCoreConfigStack(cdk.Stack):
 
         cdk.CfnOutput(
             self,
-            "AgentCoreAgentId",
+            "AgentCoreAgentIdOutput",
             value=custom_resource.get_att_string("AgentId"),
             description="Provisioned AgentCore agent ID",
         )
