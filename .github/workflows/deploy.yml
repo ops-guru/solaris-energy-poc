@@ -10,6 +10,8 @@ on:
 env:
   AWS_REGION: us-east-1
   PYTHON_VERSION: '3.12'
+  BEDROCK_GUARDRAIL_ID: ${{ secrets.BEDROCK_GUARDRAIL_ID }}
+  BEDROCK_GUARDRAIL_VERSION: ${{ secrets.BEDROCK_GUARDRAIL_VERSION }}
 
 jobs:
   deploy-infrastructure:
@@ -46,6 +48,11 @@ jobs:
         working-directory: infrastructure
         run: |
           echo "Validating CDK infrastructure templates..."
+          if [ -n "${BEDROCK_GUARDRAIL_ID}" ]; then
+            echo "Using Bedrock Guardrail ID ${BEDROCK_GUARDRAIL_ID}" 
+          else
+            echo "No Bedrock Guardrail ID supplied; guardrails disabled for this run"
+          fi
           python app.py
           echo "✅ CDK synthesis successful"
       
