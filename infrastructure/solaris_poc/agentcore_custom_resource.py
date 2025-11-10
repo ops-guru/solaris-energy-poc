@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import boto3
 
@@ -165,14 +164,12 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
 
     try:
         result = provisioner.ensure_agent()
+        physical_id = result.get("AgentId") or agent_name
         return {
-            "Status": "SUCCESS",
+            "PhysicalResourceId": physical_id,
             "Data": result,
         }
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("Failed to provision AgentCore agent: %s", exc)
-        return {
-            "Status": "FAILED",
-            "Reason": str(exc),
-        }
+        raise RuntimeError(f"Failed to provision AgentCore agent: {exc}") from exc
 

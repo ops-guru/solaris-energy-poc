@@ -177,6 +177,13 @@ class AgentCoreConfigStack(cdk.Stack):
             )
         )
 
+        handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["iam:PassRole"],
+                resources=[agent_resource_role.role_arn],
+            )
+        )
+
         provider = cr.Provider(
             self,
             "AgentCoreProvisionerProvider",
