@@ -75,6 +75,16 @@ GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID")
 GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "1")
 MIN_CONFIDENCE_SCORE = float(os.environ.get("MIN_CONFIDENCE_SCORE", "0.75"))
 
+DISALLOWED_KEYWORDS = {
+    "porn",
+    "pornography",
+    "xxx",
+    "sex tape",
+    "adult content",
+    "explicit sexual",
+    "nude",
+}
+
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,X-Requested-With,X-Api-Key",
@@ -257,6 +267,11 @@ def detect_language(text: str) -> str:
 def ensure_errors(state: AgentState) -> List[str]:
     """Guarantee an errors list is available."""
     return state.get("errors", [])
+
+
+def contains_disallowed_content(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in DISALLOWED_KEYWORDS)
 
 
 def get_model_entry(model_key: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -501,8 +516,10 @@ def run_bedrock_model(model_entry: Optional[Dict[str, Any]], state: AgentState, 
     bedrock_client = get_bedrock_client(AWS_REGION)
     system_prompt = (
         "You are an expert assistant for gas turbine operations. "
-        "Incorporate telemetry data and retrieved documentation to provide "
-        "actionable, safety-conscious guidance. Always cite your sources."
+        "Only answer questions that relate to gas turbines and the operational documentation provided. "
+        "If a user asks for content that is sexual, explicit, violent, hateful, or otherwise inappropriate, "
+        "respond with a brief refusal stating that the request cannot be fulfilled. "
+        "Never rely on outside knowledge—ground every answer in retrieved documentation and cite sources."
     )
     user_prompt = (
         f"Operator question: {state['query']}\n\n"
@@ -658,6 +675,30 @@ def knowledge_retriever(state: AgentState) -> AgentState:
 def reasoning_engine(state: AgentState) -> AgentState:
     errors = ensure_errors(state)
     citations = state.get("citations", [])
+
+    # Safety check before invoking LLM
+    combined_text = " ".join([
+        state.get("query", ""),
+        state.get("transformed_query", ""),
+        " ".join(msg.get("content", "") for msg in state.get("messages", [])),
+    ])
+    if contains_disallowed_content(combined_text):
+        refusal = (
+            "I’m sorry, but I can’t help with that request. "
+            "Please ask about operational or maintenance topics for approved turbines."
+        )
+        response_metadata = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "model_key": "blocked",
+            "model_display": "Safety Filter",
+            "grok_invoked": False,
+        }
+        errors.append("Request blocked by safety filter.")
+        return {
+            "llm_response": refusal,
+            "response_metadata": response_metadata,
+            "errors": errors,
+        }
 
     primary_model_key = resolve_model_key()
     primary_entry = get_model_entry(primary_model_key)
