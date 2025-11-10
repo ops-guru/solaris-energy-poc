@@ -56,6 +56,12 @@ AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", "")
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "turbine-documents")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "amazon.titan-embed-text-v1")
+DOCUMENTS_BUCKET = os.environ.get("DOCUMENTS_BUCKET")
+DOCUMENT_URL_EXPIRATION_SECONDS = int(os.environ.get("DOCUMENT_URL_EXPIRATION_SECONDS", "900"))
+try:
+    S3_CLIENT = boto3.client("s3") if DOCUMENTS_BUCKET else None
+except Exception:  # pragma: no cover
+    S3_CLIENT = None
 
 DATA_FETCH_ENABLED = os.environ.get("DATA_FETCH_ENABLED", "false").lower() == "true"
 AGENTCORE_GATEWAY_URL = os.environ.get("AGENTCORE_GATEWAY_URL")
@@ -134,6 +140,23 @@ def _load_model_config() -> Dict[str, Any]:
             exc,
         )
     return DEFAULT_MODEL_CONFIG.copy()
+
+
+def generate_presigned_url(object_key: Optional[str], page: Optional[int]) -> Optional[str]:
+    if not DOCUMENTS_BUCKET or not S3_CLIENT or not object_key:
+        return None
+    try:
+        url = S3_CLIENT.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": DOCUMENTS_BUCKET, "Key": object_key},
+            ExpiresIn=DOCUMENT_URL_EXPIRATION_SECONDS,
+        )
+        if page:
+            return f"{url}#page={page}"
+        return url
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Failed to presign citation URL for %s: %s", object_key, exc)
+        return None
 
 
 MODEL_CONFIG: Dict[str, Any] = _load_model_config()
@@ -378,6 +401,7 @@ def normalize_citations(documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "relevance_score": round(normalized_score, 3),
                 "excerpt": (doc.get("content") or doc.get("text") or "")[:500],
                 "section": metadata.get("section_path") or metadata.get("heading"),
+                "url": generate_presigned_url(doc.get("source"), metadata.get("page")),
             }
         )
     return citations
