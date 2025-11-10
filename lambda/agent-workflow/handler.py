@@ -83,6 +83,14 @@ DISALLOWED_KEYWORDS = {
     "adult content",
     "explicit sexual",
     "nude",
+    "astronomy",
+    "horoscope",
+    "zodiac",
+    "financial model",
+    "stock market",
+    "cryptocurrency",
+    "bitcoin",
+    "politics",
 }
 
 CORS_HEADERS = {
@@ -438,6 +446,13 @@ def combine_confidence(document_citations: List[Dict[str, Any]], data_points: Li
     return min(0.98, round(base_confidence, 3))
 
 
+def has_reliable_context(documents: List[Dict[str, Any]]) -> bool:
+    if not documents:
+        return False
+    best_score = max(doc.get("score", 0.0) for doc in documents)
+    return best_score >= 0.4
+
+
 def call_grok_api(payload: Dict[str, Any]) -> Optional[str]:
     """
     Invoke the external Grok reasoning API.
@@ -515,11 +530,14 @@ def run_bedrock_model(model_entry: Optional[Dict[str, Any]], state: AgentState, 
 
     bedrock_client = get_bedrock_client(AWS_REGION)
     system_prompt = (
-        "You are an expert assistant for gas turbine operations. "
-        "Only answer questions that relate to gas turbines and the operational documentation provided. "
-        "If a user asks for content that is sexual, explicit, violent, hateful, or otherwise inappropriate, "
-        "respond with a brief refusal stating that the request cannot be fulfilled. "
-        "Never rely on outside knowledge—ground every answer in retrieved documentation and cite sources."
+        "You are the Solaris Energy Operator Assistant. "
+        "Your sole task is to answer preventative maintenance or operational questions about the supported gas turbines. "
+        "Use only the reference material that is explicitly provided in the context. "
+        "If the supplied context does not contain the information required to answer, respond with: "
+        "'I do not have that information in the Solaris documentation.' "
+        "Do not speculate, invent details, or reference any external knowledge. "
+        "Always cite the specific manuals that support each statement. "
+        "If a request is unrelated to turbine operations or is sexual, explicit, violent, hateful, or otherwise inappropriate, refuse with a short apology and state that the request cannot be fulfilled."
     )
     user_prompt = (
         f"Operator question: {state['query']}\n\n"
@@ -675,6 +693,7 @@ def knowledge_retriever(state: AgentState) -> AgentState:
 def reasoning_engine(state: AgentState) -> AgentState:
     errors = ensure_errors(state)
     citations = state.get("citations", [])
+    documents = state.get("retrieved_documents", [])
 
     # Safety check before invoking LLM
     combined_text = " ".join([
@@ -694,6 +713,24 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "grok_invoked": False,
         }
         errors.append("Request blocked by safety filter.")
+        return {
+            "llm_response": refusal,
+            "response_metadata": response_metadata,
+            "errors": errors,
+        }
+
+    if not has_reliable_context(documents):
+        refusal = (
+            "I do not have that information in the Solaris documentation. "
+            "Please consult a supervisor or upload the relevant manual."
+        )
+        response_metadata = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "model_key": "insufficient_context",
+            "model_display": "RAG Context Check",
+            "grok_invoked": False,
+        }
+        errors.append("Insufficient supporting documentation for response.")
         return {
             "llm_response": refusal,
             "response_metadata": response_metadata,
