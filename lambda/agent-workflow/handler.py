@@ -770,6 +770,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info("New AgentCore LangGraph handler received event: %s", json.dumps(event))
 
     if "httpMethod" in event:
+        if event.get("httpMethod") == "OPTIONS":
+            return {
+                "statusCode": 204,
+                "headers": CORS_HEADERS,
+                "body": "",
+            }
         body = event.get("body", "{}")
         if isinstance(body, str):
             payload = json.loads(body or "{}")
@@ -785,6 +791,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not query:
         return {
             "statusCode": 400,
+            "headers": CORS_HEADERS,
             "body": json.dumps({"error": "Query is required"}),
         }
 
@@ -819,6 +826,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     return {
         "statusCode": 200,
+        "headers": CORS_HEADERS,
         "body": json.dumps(response_payload),
     }
 
