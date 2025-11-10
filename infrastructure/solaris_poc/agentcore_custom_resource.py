@@ -21,11 +21,15 @@ class AgentCoreProvisioner:
         agent_name: str,
         retrieval_lambda_arn: str,
         agent_definition: Dict[str, Any],
+        agent_resource_role_arn: str,
+        agent_session_role_arn: Optional[str],
     ) -> None:
         self.region = region
         self.agent_name = agent_name
         self.retrieval_lambda_arn = retrieval_lambda_arn
         self.agent_definition = agent_definition
+        self.agent_resource_role_arn = agent_resource_role_arn
+        self.agent_session_role_arn = agent_session_role_arn
 
         session = boto3.Session(region_name=region)
         self.client = session.client("bedrock-agent")
@@ -64,22 +68,30 @@ class AgentCoreProvisioner:
         if existing:
             agent_id = existing["agentId"]
             logger.info("Updating existing AgentCore agent %s", agent_id)
-            self.client.update_agent(
-                agentId=agent_id,
-                agentName=self.agent_name,
-                instruction=instruction,
-                foundationModel=model_id,
-                description=description,
-            )
+            update_kwargs = {
+                "agentId": agent_id,
+                "agentName": self.agent_name,
+                "instruction": instruction,
+                "foundationModel": model_id,
+                "description": description,
+                "agentResourceRoleArn": self.agent_resource_role_arn,
+            }
+            if self.agent_session_role_arn:
+                update_kwargs["agentSessionRoleArn"] = self.agent_session_role_arn
+            self.client.update_agent(**update_kwargs)
             return agent_id
 
         logger.info("Creating new AgentCore agent %s", self.agent_name)
-        response = self.client.create_agent(
-            agentName=self.agent_name,
-            instruction=instruction,
-            foundationModel=model_id,
-            description=description,
-        )
+        create_kwargs = {
+            "agentName": self.agent_name,
+            "instruction": instruction,
+            "foundationModel": model_id,
+            "description": description,
+            "agentResourceRoleArn": self.agent_resource_role_arn,
+        }
+        if self.agent_session_role_arn:
+            create_kwargs["agentSessionRoleArn"] = self.agent_session_role_arn
+        response = self.client.create_agent(**create_kwargs)
         return response["agent"]["agentId"]
 
     def _create_or_update_action_group(self, agent_id: str) -> str:
@@ -145,6 +157,8 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
     agent_name = props["AgentName"]
     retrieval_lambda_arn = props["RetrievalLambdaArn"]
     agent_definition = json.loads(props["AgentDefinition"])
+    agent_resource_role_arn = props["AgentResourceRoleArn"]
+    agent_session_role_arn = props.get("AgentSessionRoleArn")
 
     if request_type == "Delete":
         # No-op: deleting the agent is optional and could surprise operators
@@ -155,6 +169,8 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
         agent_name=agent_name,
         retrieval_lambda_arn=retrieval_lambda_arn,
         agent_definition=agent_definition,
+        agent_resource_role_arn=agent_resource_role_arn,
+        agent_session_role_arn=agent_session_role_arn,
     )
 
     try:
