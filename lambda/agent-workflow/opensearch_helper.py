@@ -49,9 +49,9 @@ def get_opensearch_client(
         use_ssl=True,
         verify_certs=True,
         connection_class=RequestsHttpConnection,
-        timeout=60,
-        max_retries=3,
-        retry_on_timeout=True,
+        timeout=20,
+        max_retries=0,
+        retry_on_timeout=False,
     )
     
     logger.info(f"OpenSearch client created for endpoint: {endpoint}")
@@ -175,7 +175,7 @@ def search_documents(
         response = client.search(
             index=index,
             body=search_query,
-            request_timeout=25,
+            request_timeout=12,
         )
         
         # Format results
