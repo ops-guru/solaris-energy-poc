@@ -218,6 +218,30 @@ def invoke_llm(
                         "result_keys": list(first.keys()),
                     },
                 )
+            # Some responses (notably non-streaming Nova) return top-level output
+            top_output = response_body.get("output")
+            if isinstance(top_output, dict):
+                message = top_output.get("message")
+                if isinstance(message, dict):
+                    content = message.get("content", [])
+                    if isinstance(content, list):
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict):
+                                text_val = item.get("text") or item.get("value")
+                                if text_val:
+                                    text_parts.append(text_val)
+                        if text_parts:
+                            return "".join(text_parts)
+            elif isinstance(top_output, list):
+                text_parts = []
+                for item in top_output:
+                    if isinstance(item, dict):
+                        text_val = item.get("text") or item.get("value")
+                        if text_val:
+                            text_parts.append(text_val)
+                if text_parts:
+                    return "".join(text_parts)
             logger.warning(
                 "LLM empty results",
                 extra={
