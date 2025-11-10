@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Optional
 import boto3
 
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 
 def get_bedrock_client(region: str = "us-east-1"):

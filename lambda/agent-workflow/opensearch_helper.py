@@ -9,6 +9,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from opensearchpy.exceptions import ConnectionTimeout
+from requests.exceptions import ReadTimeout
 from requests_aws4auth import AWS4Auth
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,9 @@ def get_opensearch_client(
         use_ssl=True,
         verify_certs=True,
         connection_class=RequestsHttpConnection,
-        timeout=30,
+        timeout=60,
+        max_retries=3,
+        retry_on_timeout=True,
     )
     
     logger.info(f"OpenSearch client created for endpoint: {endpoint}")
@@ -172,7 +175,7 @@ def search_documents(
         response = client.search(
             index=index,
             body=search_query,
-            request_timeout=10,
+            request_timeout=25,
         )
         
         # Format results
@@ -192,7 +195,7 @@ def search_documents(
         logger.info(f"Search returned {len(results)} results for query: {query[:50]}")
         return results
         
-    except ConnectionTimeout as timeout_error:
+    except (ConnectionTimeout, ReadTimeout) as timeout_error:
         logger.warning("OpenSearch query timed out: %s", timeout_error)
         return []
     except Exception as e:
