@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 import aws_cdk as cdk
 from solaris_poc.network_stack import NetworkStack
 from solaris_poc.storage_stack import StorageStack
@@ -19,6 +21,9 @@ env = cdk.Environment(
     account=app.node.try_get_context("account"),
     region=app.node.try_get_context("region") or "us-east-1",
 )
+
+guardrail_id = app.node.try_get_context("guardrail_id") or os.environ.get("BEDROCK_GUARDRAIL_ID")
+guardrail_version = app.node.try_get_context("guardrail_version") or os.environ.get("BEDROCK_GUARDRAIL_VERSION")
 
 # Instantiate stacks in dependency order
 network_stack = NetworkStack(app, "NetworkStack", env=env)
@@ -47,6 +52,8 @@ compute_stack = ComputeStack(
     sessions_table=storage_stack.sessions_table,
     opensearch_domain=vector_store_stack.domain,
     opensearch_endpoint=vector_store_stack.domain.domain_endpoint,
+    bedrock_guardrail_id=guardrail_id,
+    bedrock_guardrail_version=guardrail_version,
     env=env,
 )
 

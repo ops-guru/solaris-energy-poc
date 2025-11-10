@@ -22,9 +22,14 @@ class ComputeStack(cdk.Stack):
         sessions_table=None,
         opensearch_domain=None,
         opensearch_endpoint=None,
+        bedrock_guardrail_id: str | None = None,
+        bedrock_guardrail_version: str | None = None,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        self._guardrail_id = bedrock_guardrail_id
+        self._guardrail_version = bedrock_guardrail_version
 
         # Document Processor Lambda
         # Note: For initial POC, Lambda layer is deferred
@@ -47,6 +52,8 @@ class ComputeStack(cdk.Stack):
             sessions_table=sessions_table,
             opensearch_domain=opensearch_domain,
             opensearch_endpoint=opensearch_endpoint,
+            bedrock_guardrail_id=self._guardrail_id,
+            bedrock_guardrail_version=self._guardrail_version,
         )
 
         # AgentCore retrieval tool Lambda
@@ -210,6 +217,8 @@ class ComputeStack(cdk.Stack):
         documents_bucket=None,
         opensearch_domain=None,
         opensearch_endpoint=None,
+        bedrock_guardrail_id: str | None = None,
+        bedrock_guardrail_version: str | None = None,
     ) -> _lambda.Function:
         """Create agent workflow Lambda function with LangGraph."""
 
@@ -239,6 +248,20 @@ class ComputeStack(cdk.Stack):
                 ],
             )
         )
+
+        if bedrock_guardrail_id:
+            guardrail_resource = (
+                f"arn:aws:bedrock:{self.region}:{self.account}:guardrail/{bedrock_guardrail_id}"
+                if self.account
+                else "*"
+            )
+            lambda_role.add_to_policy(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["bedrock:ApplyGuardrail"],
+                    resources=[guardrail_resource],
+                )
+            )
 
         # OpenSearch permissions
         if opensearch_domain:
@@ -272,6 +295,11 @@ class ComputeStack(cdk.Stack):
 
         if documents_bucket:
             environment["DOCUMENTS_BUCKET"] = documents_bucket.bucket_name
+
+        if bedrock_guardrail_id:
+            environment["BEDROCK_GUARDRAIL_ID"] = bedrock_guardrail_id
+            if bedrock_guardrail_version:
+                environment["BEDROCK_GUARDRAIL_VERSION"] = bedrock_guardrail_version
 
         # Lambda function with Docker bundling for dependencies
         lambda_function = _lambda.Function(
