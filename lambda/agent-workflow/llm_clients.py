@@ -12,23 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_bedrock_client(region: str = "us-east-1"):
-    """
-    Create and return a Bedrock runtime client.
-    
-    Args:
-        region: AWS region
-    
-    Returns:
-        boto3 Bedrock runtime client
-    """
+    """Create and return a Bedrock runtime client."""
     return boto3.client("bedrock-runtime", region_name=region)
 
 
 ALLOWED_ROLES = {"user", "assistant"}
-
-
-def _text_content(text: str) -> Dict[str, str]:
-    return {"type": "text", "text": text}
 
 
 def _normalize_role(role: str) -> str:
@@ -39,34 +27,29 @@ def _normalize_role(role: str) -> str:
     return "assistant"
 
 
-def format_conversation_history(messages: List[Any]) -> List[Dict[str, Any]]:
-    """
-    Format conversation history for Bedrock API.
-    
-    Args:
-        messages: List of Message objects or dicts
-    
-    Returns:
-        List of formatted message dicts for Bedrock
-    """
-    formatted = []
+def _extract_text(message: Any) -> str:
+    if hasattr(message, "content"):
+        return str(getattr(message, "content", ""))
+    if isinstance(message, dict):
+        return str(message.get("content", ""))
+    return str(message)
+
+
+def format_conversation_history(messages: List[Any]) -> List[Dict[str, str]]:
+    """Normalize history into role/text pairs for later conversion."""
+    formatted: List[Dict[str, str]] = []
     for msg in messages:
-        if hasattr(msg, "role") and hasattr(msg, "content"):
-            # Pydantic model
-            formatted.append(
-                {
-                    "role": _normalize_role(getattr(msg, "role", "user")),
-                    "content": [_text_content(getattr(msg, "content", ""))],
-                }
-            )
+        if hasattr(msg, "role"):
+            raw_role = getattr(msg, "role", "user")
         elif isinstance(msg, dict):
-            # Dict
-            formatted.append(
-                {
-                    "role": _normalize_role(str(msg.get("role", "user"))),
-                    "content": [_text_content(str(msg.get("content", "")))],
-                }
-            )
+            raw_role = msg.get("role", "user")
+        else:
+            raw_role = "user"
+        role = _normalize_role(str(raw_role))
+        formatted.append({
+            "role": role,
+            "text": _extract_text(msg),
+        })
     return formatted
 
 
@@ -96,13 +79,20 @@ def invoke_llm(
     """
     try:
         formatted_history = format_conversation_history(conversation_history or [])
-        messages = formatted_history + [
-            {"role": "user", "content": [_text_content(user_prompt)]}
-        ]
 
         # Determine API format based on model
         if "claude" in model_id.lower():
             # Claude 3.x format
+            messages = [
+                {
+                    "role": entry["role"],
+                    "content": [{"type": "text", "text": entry["text"]}],
+                }
+                for entry in formatted_history
+            ]
+            messages.append(
+                {"role": "user", "content": [{"type": "text", "text": user_prompt}]}
+            )
             body = {
                 "anthropic_version": "bedrock-2023-05-31",
                 "max_tokens": max_tokens,
@@ -111,8 +101,18 @@ def invoke_llm(
                 "messages": messages,
             }
         elif "nova" in model_id.lower():
+            messages = [
+                {
+                    "role": entry["role"],
+                    "content": [{"text": entry["text"]}],
+                }
+                for entry in formatted_history
+            ]
+            messages.append(
+                {"role": "user", "content": [{"text": user_prompt}]}
+            )
             body = {
-                "system": [_text_content(system_prompt)],
+                "system": [{"text": system_prompt}],
                 "messages": messages,
                 "inferenceConfig": {
                     "maxTokens": max_tokens,
