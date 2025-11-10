@@ -113,7 +113,44 @@ class AgentCoreProvisioner:
             "lambda": self.retrieval_lambda_arn,
         }
 
-        input_schema = self.agent_definition["tools"][0].get("inputSchema", {})
+        tool_definition = self.agent_definition["tools"][0]
+        input_schema = tool_definition.get("inputSchema", {})
+        open_api_schema = {
+            "openapi": "3.0.1",
+            "info": {
+                "title": f"{tool_definition.get('name', 'Action')} schema",
+                "version": "1.0.0",
+            },
+            "paths": {
+                "/": {
+                    "post": {
+                        "summary": tool_definition.get("description", "Agent action invocation"),
+                        "operationId": tool_definition.get("name", "InvokeAction"),
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": input_schema or {"type": "object"},
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful invocation",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "additionalProperties": True,
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                }
+            },
+        }
 
         if existing:
             logger.info("Updating existing action group for agent %s", agent_id)
@@ -124,7 +161,7 @@ class AgentCoreProvisioner:
                 actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
                 description="Retrieves relevant turbine manual excerpts with citations.",
-                apiSchema={"payload": json.dumps(input_schema)},
+                apiSchema={"payload": json.dumps(open_api_schema)},
             )
             return existing["agentActionGroupArn"]
 
@@ -135,7 +172,7 @@ class AgentCoreProvisioner:
             actionGroupName="RetrieveManualChunks",
             description="Retrieves relevant turbine manual excerpts with citations.",
             actionGroupExecutor=executor,
-            apiSchema={"payload": json.dumps(input_schema)},
+            apiSchema={"payload": json.dumps(open_api_schema)},
         )
         return response["agentActionGroup"]["agentActionGroupArn"]
 
