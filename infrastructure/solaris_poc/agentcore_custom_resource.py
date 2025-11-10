@@ -110,9 +110,7 @@ class AgentCoreProvisioner:
         )
 
         executor = {
-            "lambda": {
-                "lambdaArn": self.retrieval_lambda_arn,
-            }
+            "lambda": self.retrieval_lambda_arn,
         }
 
         input_schema = self.agent_definition["tools"][0].get("inputSchema", {})
@@ -123,7 +121,7 @@ class AgentCoreProvisioner:
                 agentId=agent_id,
                 agentVersion=agent_version,
                 agentActionGroupId=existing["agentActionGroupId"],
-                agentActionGroupName="RetrieveManualChunks",
+                actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
                 description="Retrieves relevant turbine manual excerpts with citations.",
                 apiSchema={"payload": json.dumps(input_schema)},
@@ -134,7 +132,7 @@ class AgentCoreProvisioner:
         response = self.client.create_agent_action_group(
             agentId=agent_id,
             agentVersion=agent_version,
-            agentActionGroupName="RetrieveManualChunks",
+            actionGroupName="RetrieveManualChunks",
             description="Retrieves relevant turbine manual excerpts with citations.",
             actionGroupExecutor=executor,
             apiSchema={"payload": json.dumps(input_schema)},
