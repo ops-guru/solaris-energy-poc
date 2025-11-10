@@ -73,8 +73,13 @@ class AgentCoreProvisioner:
                 description=description,
                 agentResourceRoleArn=self.agent_resource_role_arn,
             )
-            agent_description = self.client.get_agent(agentId=agent_id)
-            agent_version = agent_description["agent"]["agentVersion"]
+            # Bedrock may omit agentVersion from GetAgent for draft agents; fall back to the summary
+            agent_version = existing.get("agentVersion")
+            if not agent_version:
+                agent_description = self.client.get_agent(agentId=agent_id)
+                agent_version = agent_description.get("agent", {}).get("agentVersion")
+            if not agent_version:
+                agent_version = "DRAFT"
             return agent_id, agent_version
 
         logger.info("Creating new AgentCore agent %s", self.agent_name)
@@ -86,7 +91,8 @@ class AgentCoreProvisioner:
             agentResourceRoleArn=self.agent_resource_role_arn,
         )
         agent = response["agent"]
-        return agent["agentId"], agent["agentVersion"]
+        agent_version = agent.get("agentVersion") or "DRAFT"
+        return agent["agentId"], agent_version
 
     def _create_or_update_action_group(self, agent_id: str, agent_version: str) -> str:
         """Create or update the retrieval tool action group."""
