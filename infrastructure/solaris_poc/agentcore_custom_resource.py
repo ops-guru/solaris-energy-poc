@@ -104,7 +104,7 @@ class AgentCoreProvisioner:
             (
                 group
                 for group in action_groups.get("agentActionGroupSummaries", [])
-                if group["agentActionGroupName"] == "RetrieveManualChunks"
+                if group.get("actionGroupName") == "RetrieveManualChunks"
             ),
             None,
         )
@@ -157,13 +157,13 @@ class AgentCoreProvisioner:
             self.client.update_agent_action_group(
                 agentId=agent_id,
                 agentVersion=agent_version,
-                agentActionGroupId=existing["agentActionGroupId"],
+                agentActionGroupId=existing["actionGroupId"],
                 actionGroupName="RetrieveManualChunks",
                 actionGroupExecutor=executor,
                 description="Retrieves relevant manual excerpts with citations.",
                 functionSchema=function_schema,
             )
-            action_group_id = existing["agentActionGroupId"]
+            action_group_id = existing["actionGroupId"]
         else:
             logger.info("Creating action group for agent %s", agent_id)
             response = self.client.create_agent_action_group(
