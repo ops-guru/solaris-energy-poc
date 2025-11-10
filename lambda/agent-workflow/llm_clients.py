@@ -53,6 +53,8 @@ def format_conversation_history(messages: List[Any]) -> List[Dict[str, str]]:
             "role": role,
             "text": _extract_text(msg),
         })
+    while formatted and formatted[0]["role"] != "user":
+        formatted.pop(0)
     return formatted
 
 

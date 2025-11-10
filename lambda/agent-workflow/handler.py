@@ -767,6 +767,37 @@ compiled_graph = graph.compile()
 # Lambda Handler
 # ---------------------------------------------------------------------------
 
+def _sanitize_messages(message_list: List[Any]) -> List[Dict[str, str]]:
+    cleaned: List[Dict[str, str]] = []
+    for msg in message_list:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if role not in {"user", "assistant"}:
+            continue
+        if not isinstance(content, str):
+            continue
+        cleaned.append({
+            "role": role,
+            "content": content,
+        })
+    return cleaned
+
+
+def _prepare_conversation_history(all_messages: List[Dict[str, str]], latest_query: str) -> List[Dict[str, str]]:
+    history = list(all_messages)
+    # Drop trailing duplicate user entry that matches the current query
+    if history and history[-1]["role"] == "user" and history[-1].get("content") == latest_query:
+        history = history[:-1]
+
+    # Remove leading assistant/system messages so Bedrock sees a user first
+    while history and history[0]["role"] != "user":
+        history.pop(0)
+
+    return history
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Lambda entry point for the LangGraph-based agent. Accepts the same
@@ -795,7 +826,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     session_id = payload.get("session_id") or f"session-{datetime.now(timezone.utc).isoformat()}"
     query = payload.get("query")
-    messages = payload.get("messages", [])
+    raw_messages = payload.get("messages", [])
+    sanitized_messages = _sanitize_messages(raw_messages if isinstance(raw_messages, list) else [])
+    conversation_history = _prepare_conversation_history(sanitized_messages, query or "")
 
     if not query:
         return {
@@ -807,7 +840,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     initial_state: AgentState = {
         "session_id": session_id,
         "query": query,
-        "messages": messages,
+        "messages": conversation_history,
         "errors": [],
     }
 
@@ -823,7 +856,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "guardrail_result": final_state.get("guardrail_result"),
         "response_metadata": final_state.get("response_metadata"),
         "errors": final_state.get("errors", []),
-        "messages": messages + [
+        "messages": sanitized_messages + [
             {"role": "user", "content": query, "timestamp": datetime.now(timezone.utc).isoformat()},
             {
                 "role": "assistant",
