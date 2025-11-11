@@ -23,14 +23,14 @@ class VectorStoreStack(cdk.Stack):
             self,
             "VectorStoreDomain",
             domain_name="solaris-poc-vector-store",
-            version=opensearch.EngineVersion.OPENSEARCH_2_11,  # Latest stable
+            version=opensearch.EngineVersion.OPENSEARCH_2_19,  # Align with console configuration
             capacity=opensearch.CapacityConfig(
-                master_nodes=0,  # Single AZ for POC cost savings
-                data_nodes=1,
-                data_node_instance_type="t3.small.search",
+                master_nodes=0,
+                data_nodes=2,
+                data_node_instance_type="t3.medium.search",
             ),
             ebs=opensearch.EbsOptions(
-                volume_size=20,  # GB - sufficient for POC
+                volume_size=50,
                 volume_type=ec2.EbsDeviceVolumeType.GP3,
             ),
             zone_awareness=opensearch.ZoneAwarenessConfig(
