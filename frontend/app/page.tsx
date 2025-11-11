@@ -25,15 +25,16 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-solaris-background">
       <div className="w-full border-b border-solaris-border bg-solaris-surface/80">
-        <div className="mx-auto w-full max-w-6xl px-5 py-8 flex flex-col items-center gap-4 text-center">
+        <div className="mx-auto w-full max-w-6xl px-5 py-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <Image
             src="/solaris-logo.png"
             alt="Solaris Energy Infrastructure"
             width={220}
             height={52}
             priority
+            className="sm:self-start"
           />
-          <div className="space-y-1">
+          <div className="space-y-2 text-center sm:text-left sm:self-center">
             <span className="font-display text-xs tracking-[0.45em] uppercase text-solaris-accent">
               Operator Assistant
             </span>
@@ -55,7 +56,7 @@ export default function Home() {
                 <h2 className="font-display text-4xl md:text-5xl text-solaris-charcoal leading-tight">
                   AI-guided maintenance, tuned for Solaris power systems.
                 </h2>
-                <p className="text-base text-solaris-charcoal/75 leading-relaxed max-w-xl">
+                <p className="text-base text-solaris-charcoal/75 leading-relaxed">
                   Ask operational questions, review cited documentation, and stay grounded in verified Solaris knowledge. Surface troubleshooting steps, alarm thresholds, and documentation insights in seconds. The Solaris Operator Assistant keeps your crews aligned with the latest manuals and operational practices.
                 </p>
               </div>
