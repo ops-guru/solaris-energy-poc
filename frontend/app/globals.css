@@ -20,6 +20,14 @@ h6 {
 }
 
 @layer utilities {
+  .hover\:bg-solaris-charcoal:hover {
+    background-color: #171616;
+  }
+
+  .hover\:border-solaris-charcoal:hover {
+    border-color: #171616;
+  }
+
   .text-balance {
     text-wrap: balance;
   }
