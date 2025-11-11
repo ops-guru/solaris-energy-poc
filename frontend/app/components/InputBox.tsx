@@ -26,10 +26,10 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
 
   const isSendDisabled = disabled || !input.trim();
   const baseButtonClasses =
-    "rounded-xl border px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition-colors";
+    "rounded-xl border border-solaris-accent/40 bg-solaris-accent/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition-colors shadow-sm";
   const buttonClasses = isSendDisabled
-    ? `${baseButtonClasses} border-solaris-accent/40 bg-solaris-accent/20 text-solaris-accent/70 shadow-inner cursor-not-allowed`
-    : `${baseButtonClasses} border-solaris-charcoal bg-solaris-charcoal text-white shadow-md cursor-pointer hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
+    ? `${baseButtonClasses} text-solaris-accent/60 cursor-not-allowed`
+    : `${baseButtonClasses} text-solaris-charcoal cursor-pointer hover:border-solaris-charcoal hover:bg-solaris-charcoal hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
 
   return (
     <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
