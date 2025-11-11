@@ -220,6 +220,7 @@ class AgentState(TypedDict, total=False):
     confidence_score: float
     guardrail_result: Dict[str, Any]
     errors: List[str]
+    follow_up_suggestions: List[str]
 
 
 # ---------------------------------------------------------------------------
@@ -478,6 +479,17 @@ def combine_confidence(document_citations: List[Dict[str, Any]], data_points: Li
 
 def has_reliable_context(documents: List[Dict[str, Any]]) -> bool:
     return bool(documents)
+
+
+def _should_generate_followups(response_text: str) -> bool:
+    lowered = response_text.lower()
+    disqualifiers = [
+        "i could not retrieve",
+        "unable to generate",
+        "cannot help",
+        "please verify",
+    ]
+    return all(phrase not in lowered for phrase in disqualifiers)
 
 
 def call_grok_api(payload: Dict[str, Any]) -> Optional[str]:
@@ -873,6 +885,78 @@ def response_validator(state: AgentState) -> AgentState:
     }
 
 
+def follow_up_generator(state: AgentState) -> AgentState:
+    errors = ensure_errors(state)
+    llm_response = (state.get("llm_response") or "").strip()
+    if not llm_response or not _should_generate_followups(llm_response):
+        return {"follow_up_suggestions": [], "errors": errors}
+
+    citations = state.get("citations", [])
+    if not citations:
+        return {"follow_up_suggestions": [], "errors": errors}
+
+    try:
+        model_key = resolve_model_key()
+        model_entry = get_model_entry(model_key)
+        if not model_entry:
+            return {"follow_up_suggestions": [], "errors": errors}
+
+        bedrock_client = get_bedrock_client(AWS_REGION)
+        model_id = model_entry.get("model_id")
+        if not model_id:
+            return {"follow_up_suggestions": [], "errors": errors}
+
+        citations_summary = "\n".join(
+            f"- Source: {citation.get('source')}"
+            for citation in citations[:5]
+        )
+
+        system_prompt = (
+            "You are assisting gas turbine operators. Based on the prior answer, "
+            "suggest concise follow-up questions that naturally extend the discussion."
+        )
+        user_prompt = (
+            "Operator question: {question}\n\n"
+            "Assistant answer: {answer}\n\n"
+            "Cited documents:\n{citations}\n\n"
+            "Produce a JSON array of 3 to 4 short follow-up questions the operator might ask next. "
+            "Each question should be fewer than 120 characters."
+        ).format(
+            question=state.get("query", ""),
+            answer=llm_response,
+            citations=citations_summary or "(no citations)",
+        )
+
+        raw_suggestions = invoke_llm(
+            client=bedrock_client,
+            model_id=model_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            conversation_history=[],
+            max_tokens=256,
+            temperature=0.3,
+        )
+
+        suggestions: List[str] = []
+        try:
+            parsed = json.loads(raw_suggestions)
+            if isinstance(parsed, list):
+                suggestions = [str(item).strip() for item in parsed if str(item).strip()]
+        except json.JSONDecodeError:
+            for line in raw_suggestions.splitlines():
+                cleaned = line.strip().lstrip("-•")
+                if cleaned:
+                    suggestions.append(cleaned)
+
+        suggestions = suggestions[:4]
+        return {"follow_up_suggestions": suggestions, "errors": errors}
+
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Follow-up generator failed: %s", exc, exc_info=True)
+        errors.append(f"FollowUpGenerator: {exc}")
+        return {"follow_up_suggestions": [], "errors": errors}
+
+
 # ---------------------------------------------------------------------------
 # LangGraph Assembly
 # ---------------------------------------------------------------------------
@@ -883,13 +967,15 @@ graph.add_node("DataFetcher", data_fetcher)
 graph.add_node("KnowledgeRetriever", knowledge_retriever)
 graph.add_node("ReasoningEngine", reasoning_engine)
 graph.add_node("ResponseValidator", response_validator)
+graph.add_node("FollowUpGenerator", follow_up_generator)
 
 graph.set_entry_point("QueryTransformer")
 graph.add_edge("QueryTransformer", "DataFetcher")
 graph.add_edge("DataFetcher", "KnowledgeRetriever")
 graph.add_edge("KnowledgeRetriever", "ReasoningEngine")
 graph.add_edge("ReasoningEngine", "ResponseValidator")
-graph.add_edge("ResponseValidator", END)
+graph.add_edge("ResponseValidator", "FollowUpGenerator")
+graph.add_edge("FollowUpGenerator", END)
 
 compiled_graph = graph.compile()
 
@@ -987,12 +1073,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "guardrail_result": final_state.get("guardrail_result"),
         "response_metadata": final_state.get("response_metadata"),
         "errors": final_state.get("errors", []),
+        "follow_up_suggestions": final_state.get("follow_up_suggestions", []),
         "messages": sanitized_messages + [
             {"role": "user", "content": query, "timestamp": datetime.now(timezone.utc).isoformat()},
             {
                 "role": "assistant",
                 "content": final_state.get("llm_response"),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "follow_up_suggestions": final_state.get("follow_up_suggestions", []),
             },
         ],
     }
