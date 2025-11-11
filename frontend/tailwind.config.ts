@@ -18,6 +18,7 @@ const config: Config = {
           accent: "#414345",
           accentLight: "#939393",
           border: "#d6d6d6",
+          user: "#3d5360",
         },
       },
       fontFamily: {

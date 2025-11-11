@@ -17,7 +17,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
       <div
         className={`max-w-3xl rounded-2xl border shadow-sm p-5 ${
           isUser
-            ? "border-[#171616] bg-[#171616] text-white shadow-md"
+            ? "border-solaris-user bg-solaris-user text-white shadow-md"
             : "border-solaris-border bg-white text-solaris-charcoal"
         }`}
       >
