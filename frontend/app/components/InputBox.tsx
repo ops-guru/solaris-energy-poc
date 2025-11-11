@@ -52,7 +52,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
       <button
         onClick={handleSend}
         disabled={disabled || !input.trim()}
-        className="rounded-xl border border-solaris-accent bg-solaris-accent px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition-colors hover:bg-solaris-charcoal disabled:border-solaris-border disabled:bg-solaris-border disabled:text-solaris-charcoal/50 disabled:cursor-not-allowed"
+        className="rounded-xl border border-solaris-charcoal bg-solaris-charcoal px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-md transition-colors hover:bg-black disabled:border-solaris-border disabled:bg-solaris-border disabled:text-solaris-charcoal/50 disabled:cursor-not-allowed"
       >
         Send
       </button>

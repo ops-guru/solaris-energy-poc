@@ -202,7 +202,7 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-solaris-border/80 px-6 py-5">
+      <header className="border-b border-solaris-border/80 bg-white/80 px-6 py-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl text-solaris-charcoal uppercase tracking-[0.32em]">
@@ -223,7 +223,7 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-[#F6F4EF]">
         <div className="space-y-4 px-6 py-6">
           {messages.map((message, index) => (
             <MessageBubble
@@ -259,7 +259,7 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         </div>
       </div>
 
-      <div className="border-t border-solaris-border/80 px-6 py-5">
+      <div className="border-t border-solaris-border/80 bg-white/80 px-6 py-5">
         <InputBox onSend={handleSendMessage} disabled={isLoading} />
       </div>
     </div>
