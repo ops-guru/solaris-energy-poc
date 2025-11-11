@@ -201,30 +201,30 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-[28rem]">
-      <header className="flex items-start justify-between gap-4 px-6 pt-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-solaris-teal font-semibold">
-            Live session
-          </p>
-          <h2 className="text-2xl font-display text-solaris-slate">
-            Operator Assistant Console
-          </h2>
-          <p className="text-sm text-solaris-slate/70 mt-1">
-            Ask troubleshooting questions and review cited documentation snippets.
-          </p>
+    <div className="flex h-full flex-col">
+      <header className="border-b border-solaris-border/80 px-6 py-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-xl text-solaris-charcoal uppercase tracking-[0.32em]">
+              Operator Assistant Console
+            </h2>
+            <p className="text-sm text-solaris-charcoal/65">
+              Ask questions, review sourced answers, and stay aligned with Solaris documentation.
+            </p>
+          </div>
+          {sessionId && (
+            <button
+              onClick={handleClearSession}
+              className="inline-flex items-center gap-2 rounded-full border border-solaris-border px-4 py-2 text-xs uppercase tracking-[0.28em] text-solaris-accent hover:border-solaris-accent"
+            >
+              Clear Session
+            </button>
+          )}
         </div>
-        {sessionId && (
-          <button
-            onClick={handleClearSession}
-            className="whitespace-nowrap px-4 py-2 text-xs font-semibold rounded-full border border-solaris-teal text-solaris-teal hover:bg-white"
-          >
-            Clear session
-          </button>
-        )}
       </header>
-      <div className="mt-6 flex-1 overflow-y-auto">
-        <div className="px-6 pb-6 space-y-4">
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-4 px-6 py-6">
           {messages.map((message, index) => (
             <MessageBubble
               key={index}
@@ -234,33 +234,32 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white rounded-lg shadow-sm p-4 border border-solaris-gray-medium max-w-3xl">
-                <p className="text-sm text-gray-700 mb-3">
-                  Solaris assistant is reviewing the manuals for you...
-                </p>
-                <div className="flex items-center space-x-2 text-solaris-primary">
-                  <div className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"
+              <div className="max-w-3xl rounded-2xl border border-solaris-border bg-solaris-card px-4 py-5 text-sm text-solaris-charcoal/75 shadow-sm">
+                <p className="mb-3">Solaris assistant is reviewing the manuals for you…</p>
+                <div className="flex items-center gap-2 text-solaris-accent">
+                  <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent" />
+                  <span
+                    className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent"
                     style={{ animationDelay: "0.15s" }}
-                  ></div>
-                  <div
-                    className="w-2.5 h-2.5 bg-solaris-primary rounded-full animate-bounce"
+                  />
+                  <span
+                    className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent"
                     style={{ animationDelay: "0.3s" }}
-                  ></div>
+                  />
                 </div>
               </div>
             </div>
           )}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
               {error}
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
       </div>
-      <div className="px-6 pb-6">
+
+      <div className="border-t border-solaris-border/80 px-6 py-5">
         <InputBox onSend={handleSendMessage} disabled={isLoading} />
       </div>
     </div>

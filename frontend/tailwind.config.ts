@@ -11,13 +11,13 @@ const config: Config = {
       colors: {
         // Solaris Energy brand colors
         solaris: {
-          teal: "#1c5a63",
-          tealDark: "#0f3f47",
-          sand: "#f4f1eb",
-          sandLight: "#f8f6f1",
-          gold: "#b49a63",
-          slate: "#2f2f2f",
-          cloud: "#d7d5cf",
+          background: "#eeeeee",
+          surface: "#f9f8f4",
+          card: "#ffffff",
+          charcoal: "#171616",
+          accent: "#414345",
+          accentLight: "#939393",
+          border: "#d6d6d6",
         },
       },
       fontFamily: {

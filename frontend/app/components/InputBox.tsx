@@ -25,7 +25,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
   };
 
   return (
-    <div className="flex items-end space-x-3">
+    <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
       <div className="flex-1">
         <textarea
           value={input}
@@ -34,7 +34,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
           placeholder="Ask a question about turbine operation, troubleshooting, or procedures..."
           disabled={disabled}
           rows={1}
-          className="w-full px-4 py-3 border border-solaris-cloud rounded-xl focus:outline-none focus:ring-2 focus:ring-solaris-teal focus:border-transparent resize-none disabled:bg-solaris-sand disabled:cursor-not-allowed text-solaris-slate"
+          className="w-full rounded-xl border border-solaris-border bg-solaris-card px-4 py-3 text-solaris-charcoal focus:border-solaris-accent focus:outline-none focus:ring-2 focus:ring-solaris-accent/40 disabled:cursor-not-allowed disabled:bg-solaris-surface"
           style={{
             minHeight: "48px",
             maxHeight: "120px",
@@ -45,14 +45,14 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
             target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
           }}
         />
-        <p className="text-xs text-solaris-slate/60 mt-1 ml-1">
+        <p className="mt-1 ml-1 text-xs text-solaris-charcoal/55">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
       <button
         onClick={handleSend}
         disabled={disabled || !input.trim()}
-        className="px-6 py-3 bg-solaris-teal text-white rounded-xl font-semibold hover:bg-solaris-tealDark disabled:bg-solaris-cloud disabled:text-solaris-slate/60 disabled:cursor-not-allowed disabled:opacity-70 transition-colors shadow-sm"
+        className="rounded-xl border border-solaris-accent bg-solaris-accent px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition-colors hover:bg-solaris-charcoal disabled:border-solaris-border disabled:bg-solaris-border disabled:text-solaris-charcoal/50 disabled:cursor-not-allowed"
       >
         Send
       </button>

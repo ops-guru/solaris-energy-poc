@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ChatWindow } from "./components/ChatWindow";
 
 export default function Home() {
@@ -8,12 +9,12 @@ export default function Home() {
 
   if (!agentCoreUrl) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-solaris-sandLight">
+      <div className="flex items-center justify-center min-h-screen bg-solaris-background">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-solaris-slate mb-4">
+          <h1 className="text-2xl font-semibold text-solaris-charcoal mb-4">
             Configuration Required
           </h1>
-          <p className="text-solaris-slate/70">
+          <p className="text-solaris-charcoal/70">
             Please set NEXT_PUBLIC_AGENTCORE_URL environment variable
           </p>
         </div>
@@ -22,82 +23,76 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-solaris-sandLight">
-      <header className="bg-white shadow-sm border-b border-solaris-cloud/60">
-        <div className="max-w-6xl mx-auto flex items-center justify-between py-5 px-6">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-solaris-teal flex items-center justify-center text-white text-lg font-semibold">
-              S
-            </div>
-            <div>
-              <p className="font-display text-lg tracking-wide text-solaris-teal uppercase">
-                Solaris Energy Infrastructure
-              </p>
-              <p className="text-xs text-solaris-slate/70">
-                Operator Knowledge & Response Suite
-              </p>
+    <div className="min-h-screen flex flex-col bg-solaris-background">
+      <div className="w-full border-b border-solaris-border bg-solaris-surface/80">
+        <div className="mx-auto w-full max-w-6xl px-5 py-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src="/solaris-logo.png"
+              alt="Solaris Energy Infrastructure"
+              width={180}
+              height={44}
+              priority
+            />
+            <div className="hidden sm:flex sm:flex-col sm:gap-1">
+              <span className="font-display text-sm tracking-[0.35em] uppercase text-solaris-accent">
+                Operator Assistant
+              </span>
+              <span className="text-sm text-solaris-charcoal/70">
+                Knowledge & Response Suite
+              </span>
             </div>
           </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-solaris-slate/80">
-            <a href="#" className="hover:text-solaris-teal transition-colors">
-              Power as a Service
-            </a>
-            <a href="#" className="hover:text-solaris-teal transition-colors">
-              Logistics Solutions
-            </a>
-            <a href="#" className="hover:text-solaris-teal transition-colors">
-              Industry Applications
-            </a>
-            <a href="#" className="hover:text-solaris-teal transition-colors">
-              Investor Relations
-            </a>
-            <a href="#" className="hover:text-solaris-teal transition-colors">
-              Contact
-            </a>
-          </nav>
-          <button className="hidden md:inline-flex items-center rounded-full bg-solaris-gold px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-solaris-gold/90 transition-colors">
-            Solaris Software Suite
-          </button>
+          <p className="text-sm text-solaris-charcoal/80 max-w-2xl leading-relaxed">
+            Surface troubleshooting steps, alarm thresholds, and documentation insights in seconds.
+            The Solaris Operator Assistant keeps your crews aligned with the latest manuals and operational practices.
+          </p>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-6xl mx-auto px-6 pb-16">
-        <section className="grid md:grid-cols-2 gap-16 items-center py-14">
-          <div>
-            <p className="uppercase tracking-[0.3em] text-xs text-solaris-teal font-semibold mb-3">
-              Operator Assistant
-            </p>
-            <h1 className="font-display text-4xl md:text-5xl text-solaris-slate leading-tight mb-6">
-              AI-guided maintenance, tuned for Solaris power systems.
-            </h1>
-            <p className="text-solaris-slate/80 leading-relaxed mb-8 max-w-xl">
-              Surface troubleshooting steps, alarm thresholds, and documentation insights in seconds. The Solaris Operator Assistant keeps your crews aligned with the latest manuals and operational practices.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <button className="px-6 py-3 rounded-full bg-solaris-teal text-white font-semibold shadow-sm hover:bg-solaris-tealDark transition-colors">
-                Launch Assistant
-              </button>
-              <button className="px-6 py-3 rounded-full border border-solaris-teal text-solaris-teal font-semibold hover:bg-white transition-colors">
-                View Documentation
-              </button>
+      <main className="flex-1">
+        <div className="mx-auto w-full max-w-6xl px-5 py-8 lg:py-10">
+          <section className="grid gap-8 lg:grid-cols-[ minmax(0,1.1fr)_minmax(0,1fr) ]">
+            <div className="order-2 lg:order-1 space-y-4">
+              <div className="flex flex-col gap-3">
+                <span className="font-display text-xs tracking-[0.4em] uppercase text-solaris-accent/80">
+                  Live session
+                </span>
+                <h1 className="font-display text-4xl md:text-5xl text-solaris-charcoal leading-tight">
+                  AI-guided maintenance, tuned for Solaris power systems.
+                </h1>
+                <p className="text-base text-solaris-charcoal/75 leading-relaxed max-w-xl">
+                  Ask operational questions, review cited documentation, and stay grounded in verified Solaris knowledge. Designed to match the experience of Solaris’ Power as a Service platform.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-solaris-border bg-solaris-card px-4 py-2 text-xs uppercase tracking-[0.25em] text-solaris-accent/80">
+                  <span className="h-2 w-2 rounded-full bg-solaris-accent" />
+                  Operator Console
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-solaris-border bg-solaris-card px-4 py-2 text-xs uppercase tracking-[0.25em] text-solaris-accent/80">
+                  <span className="h-2 w-2 rounded-full bg-solaris-accentLight" />
+                  RAG Enabled
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-solaris-teal/10 to-solaris-gold/10 blur-2xl" aria-hidden="true" />
-            <div className="relative rounded-3xl border border-solaris-cloud shadow-xl bg-white/90 backdrop-blur">
-              <ChatWindow apiUrl={agentCoreUrl} apiKey={agentCoreApiKey} />
+
+            <div className="order-1 lg:order-2">
+              <div className="rounded-[28px] border border-solaris-border bg-solaris-card shadow-sm overflow-hidden min-h-[480px] flex flex-col">
+                <ChatWindow apiUrl={agentCoreUrl} apiKey={agentCoreApiKey} />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
 
-      <footer className="bg-white border-t border-solaris-cloud/60 text-sm text-solaris-slate/60">
-        <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-solaris-border bg-solaris-surface/80">
+        <div className="mx-auto w-full max-w-6xl px-5 py-6 text-xs text-solaris-charcoal/60 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Solaris Energy Infrastructure. All rights reserved.</span>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-solaris-teal">Privacy</a>
-            <a href="#" className="hover:text-solaris-teal">Terms</a>
-            <a href="#" className="hover:text-solaris-teal">Support</a>
+          <div className="flex flex-wrap gap-4 uppercase tracking-[0.2em]">
+            <span>Privacy</span>
+            <span>Terms</span>
+            <span>Support</span>
           </div>
         </div>
       </footer>

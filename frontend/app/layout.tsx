@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Montserrat, Source_Sans_3 } from "next/font/google";
+import { Roboto_Condensed, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const headingFont = Montserrat({
+const headingFont = Roboto_Condensed({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "700"],
   variable: "--font-heading",
   display: "swap",
 });
@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         suppressHydrationWarning
-        className={`${headingFont.variable} ${bodyFont.variable} bg-solaris-sandLight text-solaris-slate`}
+        className={`${headingFont.variable} ${bodyFont.variable} bg-solaris-background text-solaris-charcoal`}
       >
         {children}
       </body>

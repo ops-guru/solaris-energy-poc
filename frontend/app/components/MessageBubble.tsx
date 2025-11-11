@@ -15,10 +15,10 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-3xl rounded-2xl shadow-sm p-5 ${
+        className={`max-w-3xl rounded-2xl border shadow-sm p-5 ${
           isUser
-            ? "bg-solaris-teal text-white"
-            : "bg-white border border-solaris-cloud text-solaris-slate"
+            ? "border-solaris-charcoal bg-solaris-charcoal text-white"
+            : "border-solaris-border bg-solaris-card text-solaris-charcoal"
         }`}
       >
         <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
@@ -30,7 +30,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
               type="button"
               onClick={() => setSourcesExpanded((prev) => !prev)}
               className={`text-xs font-semibold mb-2 flex items-center gap-2 ${
-                isUser ? "text-white/90" : "text-solaris-slate"
+                isUser ? "text-white/90" : "text-solaris-charcoal"
               }`}
             >
               {sourcesExpanded ? "Hide sources" : "Show sources"}
@@ -44,7 +44,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                   <li
                     key={idx}
                     className={`text-xs ${
-                      isUser ? "text-white/85" : "text-solaris-slate/80"
+                      isUser ? "text-white/85" : "text-solaris-charcoal/80"
                     }`}
                   >
                     <div className="flex flex-col space-y-1">
@@ -56,7 +56,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`underline ${
-                              isUser ? "text-white" : "text-solaris-teal"
+                              isUser ? "text-white" : "text-solaris-accent"
                             }`}
                           >
                             {citation.source}
@@ -70,7 +70,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                             className={`ml-2 ${
                               isUser
                                 ? "text-white/75"
-                                : "text-solaris-slate/60"
+                                : "text-solaris-charcoal/60"
                             }`}
                           >
                             ({Math.round(citation.relevance_score * 100)}% match)
@@ -80,7 +80,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                       {citation.excerpt && (
                         <p
                           className={`italic ${
-                            isUser ? "text-white/80" : "text-solaris-slate/60"
+                            isUser ? "text-white/80" : "text-solaris-charcoal/60"
                           }`}
                         >
                           “{citation.excerpt}”
@@ -99,7 +99,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
           message.follow_up_suggestions.length > 0 &&
           !isUser && (
             <div className="mt-4 pt-4 border-t border-opacity-20 border-current">
-              <p className="text-xs font-semibold mb-2 text-solaris-slate">
+              <p className="text-xs font-semibold mb-2 text-solaris-charcoal">
                 Suggested follow-ups:
               </p>
               <div className="flex flex-wrap gap-2">
@@ -108,7 +108,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                     key={`${suggestion}-${idx}`}
                     type="button"
                     onClick={() => onFollowUp?.(suggestion)}
-                    className="px-3 py-1 text-xs text-solaris-teal border border-solaris-teal rounded-full bg-white hover:bg-solaris-teal/10 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-solaris-teal transition-colors"
+                    className="px-3 py-1 text-xs text-solaris-accent border border-solaris-border rounded-full bg-solaris-card hover:border-solaris-accent hover:text-solaris-charcoal focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-solaris-accent transition-colors"
                   >
                     {suggestion}
                   </button>
@@ -119,7 +119,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
 
         {/* Metadata */}
         <div className={`mt-3 pt-3 border-t border-opacity-20 border-current flex items-center justify-between text-xs ${
-          isUser ? "text-white/85" : "text-solaris-slate/70"
+          isUser ? "text-white/85" : "text-solaris-charcoal/70"
         }`}>
           <div>
             {message.turbine_model && (
@@ -139,7 +139,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
               <div className="flex items-center space-x-1">
                 <div
                   className={`w-16 h-2 rounded-full ${
-                    isUser ? "bg-white/30" : "bg-solaris-cloud"
+                    isUser ? "bg-white/30" : "bg-solaris-border"
                   }`}
                 >
                   <div
