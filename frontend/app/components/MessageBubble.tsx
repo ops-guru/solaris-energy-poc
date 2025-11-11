@@ -108,7 +108,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                     key={`${suggestion}-${idx}`}
                     type="button"
                     onClick={() => onFollowUp?.(suggestion)}
-                    className="px-3 py-1 text-xs text-solaris-primary border border-solaris-primary rounded-full hover:bg-solaris-primary hover:text-white transition-colors"
+                    className="px-3 py-1 text-xs text-solaris-primary border border-solaris-primary rounded-full bg-white hover:bg-solaris-primary/10 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-solaris-primary transition-colors"
                   >
                     {suggestion}
                   </button>
