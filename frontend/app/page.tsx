@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-solaris-background">
-      <div className="w-full border-b border-solaris-border bg-solaris-surface/80">
+      <div className="sticky top-0 z-30 w-full border-b border-solaris-border bg-[#EFECE6]">
         <div className="mx-auto w-full max-w-6xl px-5 py-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <Image
             src="/solaris-logo.png"

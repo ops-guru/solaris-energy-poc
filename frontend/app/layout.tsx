@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         suppressHydrationWarning
-        className={`${headingFont.variable} ${bodyFont.variable} bg-solaris-background text-solaris-charcoal`}
+        className={`${headingFont.variable} ${bodyFont.variable} text-solaris-charcoal`}
       >
         {children}
       </body>
