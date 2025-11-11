@@ -11,6 +11,9 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const userStyle = isUser
+    ? { backgroundColor: "#3d5360", borderColor: "#3d5360" }
+    : undefined;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -20,6 +23,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
             ? "border-solaris-user bg-solaris-user text-white shadow-md"
             : "border-solaris-border bg-white text-solaris-charcoal"
         }`}
+        style={userStyle}
       >
         <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
 
