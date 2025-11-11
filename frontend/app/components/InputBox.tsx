@@ -29,7 +29,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
     "rounded-xl border px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition-colors";
   const buttonClasses = isSendDisabled
     ? `${baseButtonClasses} border-solaris-accent/40 bg-solaris-accent/20 text-solaris-accent/70 shadow-inner cursor-not-allowed`
-    : `${baseButtonClasses} border-solaris-accent/40 bg-solaris-accent/20 text-solaris-accent/90 shadow-sm cursor-pointer hover:border-solaris-charcoal hover:bg-solaris-charcoal hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
+    : `${baseButtonClasses} border-solaris-charcoal bg-solaris-charcoal text-white shadow-md cursor-pointer hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
 
   return (
     <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
