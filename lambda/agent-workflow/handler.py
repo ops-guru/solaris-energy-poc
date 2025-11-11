@@ -247,6 +247,16 @@ def detect_turbine_model(query: str) -> Optional[str]:
     return None
 
 
+def infer_turbine_from_history(messages: List[Dict[str, Any]]) -> Optional[str]:
+    for message in reversed(messages):
+        content = message.get("content", "")
+        if isinstance(content, str):
+            candidate = detect_turbine_model(content)
+            if candidate:
+                return candidate
+    return None
+
+
 def enrich_query(query: str, turbine_model: Optional[str], messages: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Build an enriched query payload capturing inferred intent, context
@@ -492,6 +502,33 @@ def _should_generate_followups(response_text: str) -> bool:
     return all(phrase not in lowered for phrase in disqualifiers)
 
 
+def redact_citations_if_refusal(
+    response_text: str,
+    metadata: Optional[Dict[str, Any]],
+    citations: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not citations:
+        return []
+
+    model_key = (metadata or {}).get("model_key")
+    lowered = response_text.lower()
+    refusal_markers = [
+        "i’m sorry, but i can’t help",
+        "i'm sorry, but i can't help",
+        "i could not retrieve",
+        "unable to provide that information",
+        "unable to generate a response",
+        "i do not have that information",
+    ]
+
+    if model_key in {"blocked", "insufficient_context"} or any(
+        marker in lowered for marker in refusal_markers
+    ):
+        return []
+
+    return citations
+
+
 def call_grok_api(payload: Dict[str, Any]) -> Optional[str]:
     """
     Invoke the external Grok reasoning API.
@@ -612,6 +649,9 @@ def query_transformer(state: AgentState) -> AgentState:
     messages = state.get("messages", [])
 
     turbine_model = detect_turbine_model(query)
+    if not turbine_model:
+        turbine_model = infer_turbine_from_history(messages)
+
     enriched_payload = enrich_query(query, turbine_model, messages)
 
     transformed_query = enriched_payload["query_with_model_hint"]
@@ -756,7 +796,7 @@ def reasoning_engine(state: AgentState) -> AgentState:
             "llm_response": refusal,
             "response_metadata": response_metadata,
             "errors": errors,
-            "citations": screened_citations(citations),
+            "citations": [],
         }
 
     if not has_reliable_context(documents):
@@ -1066,7 +1106,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     response_payload = {
         "session_id": session_id,
         "response": final_state.get("llm_response"),
-        "citations": final_state.get("citations", []),
+        "citations": redact_citations_if_refusal(
+            final_state.get("llm_response", ""),
+            final_state.get("response_metadata"),
+            final_state.get("citations", []),
+        ),
         "confidence_score": final_state.get("confidence_score"),
         "turbine_model": final_state.get("turbine_model"),
         "data_points": final_state.get("data_points", []),
