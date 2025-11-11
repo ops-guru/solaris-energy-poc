@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Message, Citation } from "./ChatWindow";
 
 interface MessageBubbleProps {
   message: Message;
+  onFollowUp?: (question: string) => void;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -23,55 +26,96 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {/* Citations */}
         {message.citations && message.citations.length > 0 && (
           <div className="mt-4 pt-4 border-t border-opacity-20 border-current">
-            <p className={`text-xs font-semibold mb-2 ${
-              isUser ? "text-white text-opacity-95" : "text-gray-800"
-            }`}>Sources:</p>
-            <ul className="space-y-1">
-              {message.citations.map((citation, idx) => (
-                <li key={idx} className={`text-xs ${
-                  isUser ? "text-white text-opacity-90" : "text-gray-700"
-                }`}>
-                  <div className="flex flex-col space-y-1">
-                    <div>
-                      <span className="font-medium mr-1">{idx + 1}.</span>
-                      {citation.url ? (
-                        <a
-                          href={citation.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`underline ${
-                            isUser ? "text-white" : "text-solaris-primary"
+            <button
+              type="button"
+              onClick={() => setSourcesExpanded((prev) => !prev)}
+              className={`text-xs font-semibold mb-2 flex items-center gap-2 ${
+                isUser ? "text-white text-opacity-95" : "text-gray-800"
+              }`}
+            >
+              {sourcesExpanded ? "Hide sources" : "Show sources"}
+              <span className="text-[10px]">
+                {sourcesExpanded ? "▲" : "▼"}
+              </span>
+            </button>
+            {sourcesExpanded && (
+              <ul className="space-y-1">
+                {message.citations.map((citation, idx) => (
+                  <li
+                    key={idx}
+                    className={`text-xs ${
+                      isUser ? "text-white text-opacity-90" : "text-gray-700"
+                    }`}
+                  >
+                    <div className="flex flex-col space-y-1">
+                      <div>
+                        <span className="font-medium mr-1">{idx + 1}.</span>
+                        {citation.url ? (
+                          <a
+                            href={citation.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`underline ${
+                              isUser ? "text-white" : "text-solaris-primary"
+                            }`}
+                          >
+                            {citation.source}
+                          </a>
+                        ) : (
+                          citation.source
+                        )}
+                        {citation.page && ` (Page ${citation.page})`}
+                        {citation.relevance_score !== undefined && (
+                          <span
+                            className={`ml-2 ${
+                              isUser
+                                ? "text-white text-opacity-75"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            ({Math.round(citation.relevance_score * 100)}% match)
+                          </span>
+                        )}
+                      </div>
+                      {citation.excerpt && (
+                        <p
+                          className={`italic ${
+                            isUser ? "text-white text-opacity-80" : "text-gray-600"
                           }`}
                         >
-                          {citation.source}
-                        </a>
-                      ) : (
-                        citation.source
-                      )}
-                      {citation.page && ` (Page ${citation.page})`}
-                      {citation.relevance_score !== undefined && (
-                        <span className={`ml-2 ${
-                          isUser ? "text-white text-opacity-75" : "text-gray-600"
-                        }`}>
-                          ({Math.round(citation.relevance_score * 100)}% match)
-                        </span>
+                          “{citation.excerpt}”
+                        </p>
                       )}
                     </div>
-                    {citation.excerpt && (
-                      <p
-                        className={`italic ${
-                          isUser ? "text-white text-opacity-80" : "text-gray-600"
-                        }`}
-                      >
-                        “{citation.excerpt}”
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
+
+        {/* Follow-up Suggestions */}
+        {message.follow_up_suggestions &&
+          message.follow_up_suggestions.length > 0 &&
+          !isUser && (
+            <div className="mt-4 pt-4 border-t border-opacity-20 border-current">
+              <p className="text-xs font-semibold mb-2 text-gray-800">
+                Suggested follow-ups:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {message.follow_up_suggestions.map((suggestion, idx) => (
+                  <button
+                    key={`${suggestion}-${idx}`}
+                    type="button"
+                    onClick={() => onFollowUp?.(suggestion)}
+                    className="px-3 py-1 text-xs text-solaris-primary border border-solaris-primary rounded-full hover:bg-solaris-primary hover:text-white transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
         {/* Metadata */}
         <div className={`mt-3 pt-3 border-t border-opacity-20 border-current flex items-center justify-between text-xs ${

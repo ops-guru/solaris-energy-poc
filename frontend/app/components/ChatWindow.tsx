@@ -11,6 +11,7 @@ export interface Message {
   citations?: Citation[];
   confidence_score?: number;
   turbine_model?: string;
+  follow_up_suggestions?: string[];
 }
 
 export interface Citation {
@@ -135,6 +136,9 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         confidence_score:
           typeof confidence === "number" ? Math.min(Math.max(confidence, 0), 1) : undefined,
         turbine_model: turbineModel,
+        follow_up_suggestions: Array.isArray(data.follow_up_suggestions)
+          ? data.follow_up_suggestions.filter((item: unknown): item is string => typeof item === "string" && !!item.trim())
+          : [],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -183,6 +187,11 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
     }
   };
 
+  const handleFollowUpSelect = (question: string) => {
+    if (isLoading) return;
+    handleSendMessage(question);
+  };
+
   // Load session ID from localStorage on mount
   useEffect(() => {
     const storedSessionId = localStorage.getItem("solaris_session_id");
@@ -221,7 +230,11 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           {messages.map((message, index) => (
-            <MessageBubble key={index} message={message} />
+            <MessageBubble
+              key={index}
+              message={message}
+              onFollowUp={handleFollowUpSelect}
+            />
           ))}
           {isLoading && (
             <div className="flex justify-start">
