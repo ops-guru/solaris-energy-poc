@@ -23,7 +23,8 @@ class VectorStoreStack(cdk.Stack):
             self,
             "VectorStoreDomain",
             domain_name="solaris-poc-vector-store",
-            version=opensearch.EngineVersion.OPENSEARCH_2_19,  # Align with console configuration
+            # CDK 2.150.0 exposes constants up to 2.11
+            version=opensearch.EngineVersion.OPENSEARCH_2_11,
             capacity=opensearch.CapacityConfig(
                 master_nodes=0,
                 data_nodes=2,
