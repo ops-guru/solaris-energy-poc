@@ -15,10 +15,10 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-3xl rounded-lg shadow-sm p-4 ${
+        className={`max-w-3xl rounded-2xl shadow-sm p-5 ${
           isUser
-            ? "bg-solaris-primary text-white"
-            : "bg-white border border-solaris-gray-medium text-gray-900"
+            ? "bg-solaris-teal text-white"
+            : "bg-white border border-solaris-cloud text-solaris-slate"
         }`}
       >
         <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
@@ -30,7 +30,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
               type="button"
               onClick={() => setSourcesExpanded((prev) => !prev)}
               className={`text-xs font-semibold mb-2 flex items-center gap-2 ${
-                isUser ? "text-white text-opacity-95" : "text-gray-800"
+                isUser ? "text-white/90" : "text-solaris-slate"
               }`}
             >
               {sourcesExpanded ? "Hide sources" : "Show sources"}
@@ -44,7 +44,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                   <li
                     key={idx}
                     className={`text-xs ${
-                      isUser ? "text-white text-opacity-90" : "text-gray-700"
+                      isUser ? "text-white/85" : "text-solaris-slate/80"
                     }`}
                   >
                     <div className="flex flex-col space-y-1">
@@ -56,7 +56,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`underline ${
-                              isUser ? "text-white" : "text-solaris-primary"
+                              isUser ? "text-white" : "text-solaris-teal"
                             }`}
                           >
                             {citation.source}
@@ -69,8 +69,8 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                           <span
                             className={`ml-2 ${
                               isUser
-                                ? "text-white text-opacity-75"
-                                : "text-gray-600"
+                                ? "text-white/75"
+                                : "text-solaris-slate/60"
                             }`}
                           >
                             ({Math.round(citation.relevance_score * 100)}% match)
@@ -80,7 +80,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                       {citation.excerpt && (
                         <p
                           className={`italic ${
-                            isUser ? "text-white text-opacity-80" : "text-gray-600"
+                            isUser ? "text-white/80" : "text-solaris-slate/60"
                           }`}
                         >
                           “{citation.excerpt}”
@@ -99,7 +99,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
           message.follow_up_suggestions.length > 0 &&
           !isUser && (
             <div className="mt-4 pt-4 border-t border-opacity-20 border-current">
-              <p className="text-xs font-semibold mb-2 text-gray-800">
+              <p className="text-xs font-semibold mb-2 text-solaris-slate">
                 Suggested follow-ups:
               </p>
               <div className="flex flex-wrap gap-2">
@@ -108,7 +108,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
                     key={`${suggestion}-${idx}`}
                     type="button"
                     onClick={() => onFollowUp?.(suggestion)}
-                    className="px-3 py-1 text-xs text-solaris-primary border border-solaris-primary rounded-full bg-white hover:bg-solaris-primary/10 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-solaris-primary transition-colors"
+                    className="px-3 py-1 text-xs text-solaris-teal border border-solaris-teal rounded-full bg-white hover:bg-solaris-teal/10 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-solaris-teal transition-colors"
                   >
                     {suggestion}
                   </button>
@@ -119,7 +119,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
 
         {/* Metadata */}
         <div className={`mt-3 pt-3 border-t border-opacity-20 border-current flex items-center justify-between text-xs ${
-          isUser ? "text-white text-opacity-90" : "text-gray-600"
+          isUser ? "text-white/85" : "text-solaris-slate/70"
         }`}>
           <div>
             {message.turbine_model && (
@@ -139,7 +139,7 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
               <div className="flex items-center space-x-1">
                 <div
                   className={`w-16 h-2 rounded-full ${
-                    isUser ? "bg-white bg-opacity-30" : "bg-solaris-gray-medium"
+                    isUser ? "bg-white/30" : "bg-solaris-cloud"
                   }`}
                 >
                   <div

@@ -201,34 +201,30 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-solaris-gray-light">
-      {/* Header */}
-      <header className="bg-white border-b border-solaris-gray-medium shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Solaris Energy Operator Assistant
-              </h1>
-              <p className="text-sm text-gray-700 mt-1">
-                Troubleshooting & Documentation Support
-              </p>
-            </div>
-            {sessionId && (
-              <button
-                onClick={handleClearSession}
-                className="px-4 py-2 text-sm text-gray-800 hover:text-gray-900 border border-solaris-gray-medium rounded-lg hover:bg-solaris-gray-light transition-colors font-medium"
-              >
-                Clear Session
-              </button>
-            )}
-          </div>
+    <div className="flex flex-col min-h-[28rem]">
+      <header className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-solaris-teal font-semibold">
+            Live session
+          </p>
+          <h2 className="text-2xl font-display text-solaris-slate">
+            Operator Assistant Console
+          </h2>
+          <p className="text-sm text-solaris-slate/70 mt-1">
+            Ask troubleshooting questions and review cited documentation snippets.
+          </p>
         </div>
+        {sessionId && (
+          <button
+            onClick={handleClearSession}
+            className="whitespace-nowrap px-4 py-2 text-xs font-semibold rounded-full border border-solaris-teal text-solaris-teal hover:bg-white"
+          >
+            Clear session
+          </button>
+        )}
       </header>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+      <div className="mt-6 flex-1 overflow-y-auto">
+        <div className="px-6 pb-6 space-y-4">
           {messages.map((message, index) => (
             <MessageBubble
               key={index}
@@ -264,12 +260,8 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
           <div ref={messagesEndRef} />
         </div>
       </div>
-
-      {/* Input Area */}
-      <div className="bg-white border-t border-solaris-gray-medium shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <InputBox onSend={handleSendMessage} disabled={isLoading} />
-        </div>
+      <div className="px-6 pb-6">
+        <InputBox onSend={handleSendMessage} disabled={isLoading} />
       </div>
     </div>
   );

@@ -11,18 +11,18 @@ const config: Config = {
       colors: {
         // Solaris Energy brand colors
         solaris: {
-          primary: "#0066CC", // Energy blue
-          secondary: "#00CC66", // Green accent
-          dark: "#171616", // Dark text
-          gray: {
-            light: "#EEEEEE", // Background
-            medium: "#CCCCCC",
-            dark: "#666666",
-          },
+          teal: "#1c5a63",
+          tealDark: "#0f3f47",
+          sand: "#f4f1eb",
+          sandLight: "#f8f6f1",
+          gold: "#b49a63",
+          slate: "#2f2f2f",
+          cloud: "#d7d5cf",
         },
       },
       fontFamily: {
-        sans: ['"Source Sans Pro"', "sans-serif"],
+        sans: ["var(--font-body)", "sans-serif"],
+        display: ["var(--font-heading)", "sans-serif"],
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

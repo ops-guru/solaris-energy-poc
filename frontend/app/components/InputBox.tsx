@@ -34,7 +34,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
           placeholder="Ask a question about turbine operation, troubleshooting, or procedures..."
           disabled={disabled}
           rows={1}
-          className="w-full px-4 py-3 border border-solaris-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-solaris-primary focus:border-transparent resize-none disabled:bg-solaris-gray-light disabled:cursor-not-allowed text-gray-900"
+          className="w-full px-4 py-3 border border-solaris-cloud rounded-xl focus:outline-none focus:ring-2 focus:ring-solaris-teal focus:border-transparent resize-none disabled:bg-solaris-sand disabled:cursor-not-allowed text-solaris-slate"
           style={{
             minHeight: "48px",
             maxHeight: "120px",
@@ -45,14 +45,14 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
             target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
           }}
         />
-        <p className="text-xs text-solaris-gray-dark mt-1 ml-1">
+        <p className="text-xs text-solaris-slate/60 mt-1 ml-1">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
       <button
         onClick={handleSend}
         disabled={disabled || !input.trim()}
-        className="px-6 py-3 bg-solaris-primary text-white rounded-lg font-semibold hover:bg-opacity-90 disabled:bg-solaris-gray-medium disabled:cursor-not-allowed disabled:opacity-50 transition-colors shadow-sm"
+        className="px-6 py-3 bg-solaris-teal text-white rounded-xl font-semibold hover:bg-solaris-tealDark disabled:bg-solaris-cloud disabled:text-solaris-slate/60 disabled:cursor-not-allowed disabled:opacity-70 transition-colors shadow-sm"
       >
         Send
       </button>
