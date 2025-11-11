@@ -24,6 +24,11 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
     }
   };
 
+  const isSendDisabled = disabled || !input.trim();
+  const buttonClasses = isSendDisabled
+    ? "rounded-xl border border-solaris-accent/40 bg-solaris-accent/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-solaris-accent/70 shadow-inner cursor-not-allowed"
+    : "rounded-xl border border-solaris-charcoal bg-solaris-charcoal px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-md transition-colors hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+
   return (
     <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
       <div className="flex-1">
@@ -49,11 +54,7 @@ export function InputBox({ onSend, disabled }: InputBoxProps) {
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
-      <button
-        onClick={handleSend}
-        disabled={disabled || !input.trim()}
-        className="rounded-xl border border-solaris-charcoal bg-solaris-charcoal px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-md transition-colors hover:bg-black disabled:border-solaris-border disabled:bg-solaris-border disabled:text-solaris-charcoal/50 disabled:cursor-not-allowed"
-      >
+      <button onClick={handleSend} disabled={isSendDisabled} className={buttonClasses}>
         Send
       </button>
     </div>
