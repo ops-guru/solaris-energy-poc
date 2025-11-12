@@ -28,11 +28,11 @@ Group: Edge / API Layer
   - Shape: Amazon API Gateway (REST, API Keys)
     connects to AWS Lambda (Chat API Handler) over HTTPS.
   - Shape: AWS Lambda (Chat API Handler)
-    note: Validates session tokens, persists chat state, forwards requests to Agent Workflow Lambda.
+    note: Validates session tokens, forwards requests to Agent Workflow Lambda, delegates long-term memory to AgentCore service.
 
 Group: AWS VPC – Private Subnet (Compute)
   - Shape: AWS Lambda (Agent Workflow – LangGraph)
-    note: Runs QueryTransformer → DataFetcher → KnowledgeRetriever → ReasoningEngine → ResponseValidator nodes.
+    note: Runs QueryTransformer → DataFetcher → KnowledgeRetriever → ReasoningEngine → ResponseValidator nodes. Uses AgentCore runtime container and memory service for session persistence instead of DynamoDB.
   - Shape: AWS Lambda (Document Processor)
     note: Triggered by S3 events; performs PDF extraction, hierarchical chunking, Titan embeddings, writes to OpenSearch.
   - Shape: Amazon EventBridge (Anomaly Bus)
@@ -47,11 +47,12 @@ Connections inside Agent Workflow Lambda:
         Path 2: AWS Bedrock (Amazon Nova Pro) via InvokeModel.
         Path 3: AWS Bedrock (Anthropic Claude 4.5 Sonnet) via InvokeModel.
     note: Grok is primary when configured; Nova Pro is default; Claude 4.5 available via runtime switch. Responses include citations and telemetry summaries.
+  - AgentCore Memory Service node maintains session transcripts, tool outputs, and intermediate reasoning state across Lambda invocations using secure container storage.
   - ResponseValidator node calls AWS Bedrock Guardrails (ApplyGuardrail) and enforces MIN_CONFIDENCE_SCORE threshold before returning output.
 
 Outputs from Agent Workflow Lambda:
   - Sends formatted answer with citations back to Chat API Handler Lambda.
-  - Writes session transcript, confidence score, guardrail status to Amazon DynamoDB (ChatSessions table).
+  - Persists conversation state to AgentCore memory storage; optionally mirrors session metadata to Amazon DynamoDB (ChatSessions table) for audit.
 
 Group: AWS VPC – Private Subnet (Data Plane)
   - Shape: Amazon OpenSearch Service (turbine-documents index)
@@ -69,6 +70,8 @@ Group: External / SaaS
       Receives POST from ReasoningEngine node with context and returns draft response.
   - Shape: AgentCore Secure Gateway
       validates signed requests from DataFetcher, proxies to Amazon Timestream, enforces least privilege.
+  - Shape: AgentCore Memory & Tool Runtime (Managed Service)
+      Hosts sandboxed containers running the agent graph, provides encrypted vector + JSON memory store, exposes session APIs consumed by workflow Lambda.
 
 Supporting Services:
   - Shape: AWS CloudWatch (Logs & Metrics) monitors Lambdas, API Gateway, Guardrail outputs.
@@ -82,5 +85,6 @@ Notes:
   - Highlight optional telemetry path and fallback model choice in the diagram.
   - Indicate that EventBridge anomaly events can auto-populate the operator chat with “What’s happening?” prompts.
   - Show that Document Processor keeps OpenSearch index warm with hierarchical chunk metadata to enable neighbor stitching.
+  - Emphasize AgentCore-managed memory replacing DynamoDB session storage and enabling long-term recall across conversations.
 ```
 
