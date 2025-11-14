@@ -20,6 +20,18 @@ const config: Config = {
           border: "#d6d6d6",
           user: "#3d5360",
         },
+        opsguru: {
+          background: "#02091c",
+          surface: "#08152e",
+          panel: "#0c1f41",
+          card: "#132952",
+          border: "rgba(255,255,255,0.18)",
+          accent: "#6ce8ff",
+          accentAlt: "#8df4ff",
+          user: "#1b3e7a",
+          text: "#f4f7ff",
+          muted: "#c2d6ff",
+        },
       },
       fontFamily: {
         sans: ["var(--font-body)", "sans-serif"],

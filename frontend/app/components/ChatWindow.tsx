@@ -22,17 +22,93 @@ export interface Citation {
   url?: string;
 }
 
+type Variant = "solaris" | "opsguru";
+
 interface ChatWindowProps {
   apiUrl: string;
   apiKey?: string;
+  variant?: Variant;
 }
 
-export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
+const VARIANT_CONFIG: Record<
+  Variant,
+  {
+    sessionKey: string;
+    welcomeMessage: string;
+    clearedMessage: string;
+    headerWrapper: string;
+    headerTitleClass: string;
+    headerSubtitleClass: string;
+    eyebrow: string;
+    subtitle: string;
+    clearButtonClasses: string;
+    chatBodyBg: string;
+    loadingBubble: string;
+    loadingMessage: string;
+    loadingTextClass: string;
+    loadingDotsWrapper: string;
+    loadingDot: string;
+    inputWrapper: string;
+  }
+> = {
+  solaris: {
+    sessionKey: "solaris_session_id",
+    welcomeMessage:
+      "Welcome to the Solaris Energy Operator Assistant. I can help you troubleshoot issues, find procedures, and answer questions about your turbines. How can I assist you today?",
+    clearedMessage: "Session cleared. How can I assist you today?",
+    headerWrapper: "border-b border-solaris-border/80 bg-white/80 px-6 py-5",
+    headerTitleClass:
+      "font-display text-xl text-solaris-charcoal uppercase tracking-[0.32em]",
+    headerSubtitleClass: "text-sm text-solaris-charcoal/65",
+    eyebrow: "Operator Assistant Console",
+    subtitle:
+      "Ask questions, review sourced answers, and stay aligned with Solaris documentation.",
+    clearButtonClasses:
+      "inline-flex items-center gap-2 rounded-full border border-solaris-border px-4 py-2 text-xs uppercase tracking-[0.28em] text-solaris-accent hover:border-solaris-accent",
+    chatBodyBg: "bg-[#F6F4EF]",
+    loadingBubble:
+      "max-w-3xl rounded-2xl border border-solaris-border bg-solaris-card px-4 py-5 text-sm shadow-sm",
+    loadingMessage:
+      "Solaris assistant is reviewing the manuals for you…",
+    loadingTextClass: "text-solaris-charcoal/80",
+    loadingDotsWrapper: "text-solaris-accent",
+    loadingDot: "bg-solaris-accent",
+    inputWrapper: "border-t border-solaris-border/80 bg-white/80 px-6 py-5",
+  },
+  opsguru: {
+    sessionKey: "opsguru_session_id",
+    welcomeMessage:
+      "Welcome to the Operator Assistant. I can help you troubleshoot issues, find procedures, and answer questions about your power systems. How can I assist you today?",
+    clearedMessage: "Session cleared. How can I assist you today?",
+    headerWrapper:
+      "border-b border-[#dbe5fb] bg-white px-6 py-5 shadow-sm",
+    headerTitleClass:
+      "font-display text-xl text-[#0b1c34] uppercase tracking-[0.32em]",
+    headerSubtitleClass: "text-sm text-[#4a5d7a]",
+    eyebrow: "Operator Assistant Console",
+    subtitle:
+      "Ask questions, review sourced answers, and stay aligned with technical documentation.",
+    clearButtonClasses:
+      "inline-flex items-center gap-2 rounded-full border border-[#dbe5fb] px-4 py-2 text-xs uppercase tracking-[0.28em] text-[#0b1c34] hover:border-opsguru-accent hover:text-opsguru-accent",
+    chatBodyBg: "bg-white",
+    loadingBubble:
+      "max-w-3xl rounded-2xl border border-[#dfe7fb] bg-white px-4 py-5 text-sm shadow-lg text-[#0b1c34]",
+    loadingMessage: "Operator Assistant is reviewing the manuals for you…",
+    loadingTextClass: "text-[#0b1c34]/80",
+    loadingDotsWrapper: "text-[#0f6aa8]",
+    loadingDot: "bg-opsguru-accent",
+    inputWrapper:
+      "border-t border-[#dfe7fb] bg-white px-6 py-5",
+  },
+};
+
+export function ChatWindow({ apiUrl, apiKey, variant = "solaris" }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const config = VARIANT_CONFIG[variant];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,12 +122,11 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
   useEffect(() => {
     const welcomeMessage: Message = {
       role: "assistant",
-      content:
-        "Welcome to the Solaris Energy Operator Assistant. I can help you troubleshoot issues, find procedures, and answer questions about your turbines. How can I assist you today?",
+      content: config.welcomeMessage,
       timestamp: new Date().toISOString(),
     };
     setMessages([welcomeMessage]);
-  }, []);
+  }, [variant, config.welcomeMessage]);
 
   const handleSendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
@@ -102,7 +177,7 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         data.sessionId || data.session_id || sessionId || null;
       if (nextSessionId) {
         setSessionId(nextSessionId);
-        localStorage.setItem("solaris_session_id", nextSessionId);
+        localStorage.setItem(config.sessionKey, nextSessionId);
       }
 
       const responseText =
@@ -173,12 +248,11 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
       });
 
       setSessionId(null);
-      localStorage.removeItem("solaris_session_id");
+      localStorage.removeItem(config.sessionKey);
       setMessages([
         {
           role: "assistant",
-          content:
-            "Session cleared. How can I assist you today?",
+          content: config.clearedMessage,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -194,28 +268,30 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
 
   // Load session ID from localStorage on mount
   useEffect(() => {
-    const storedSessionId = localStorage.getItem("solaris_session_id");
+    const storedSessionId = localStorage.getItem(config.sessionKey);
     if (storedSessionId) {
       setSessionId(storedSessionId);
+    } else {
+      setSessionId(null);
     }
-  }, []);
+  }, [config.sessionKey]);
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-solaris-border/80 bg-white/80 px-6 py-5">
+      <header className={config.headerWrapper}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-display text-xl text-solaris-charcoal uppercase tracking-[0.32em]">
-              Operator Assistant Console
+            <h2 className={config.headerTitleClass}>
+              {config.eyebrow}
             </h2>
-            <p className="text-sm text-solaris-charcoal/65">
-              Ask questions, review sourced answers, and stay aligned with Solaris documentation.
+            <p className={config.headerSubtitleClass}>
+              {config.subtitle}
             </p>
           </div>
           {sessionId && (
             <button
               onClick={handleClearSession}
-              className="inline-flex items-center gap-2 rounded-full border border-solaris-border px-4 py-2 text-xs uppercase tracking-[0.28em] text-solaris-accent hover:border-solaris-accent"
+              className={config.clearButtonClasses}
             >
               Clear Session
             </button>
@@ -223,27 +299,28 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-[#F6F4EF]">
+      <div className={`flex-1 overflow-y-auto ${config.chatBodyBg}`}>
         <div className="space-y-4 px-6 py-6">
           {messages.map((message, index) => (
             <MessageBubble
               key={index}
               message={message}
               onFollowUp={handleFollowUpSelect}
+              variant={variant}
             />
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="max-w-3xl rounded-2xl border border-solaris-border bg-solaris-card px-4 py-5 text-sm text-solaris-charcoal/75 shadow-sm">
-                <p className="mb-3">Solaris assistant is reviewing the manuals for you…</p>
-                <div className="flex items-center gap-2 text-solaris-accent">
-                  <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent" />
+              <div className={config.loadingBubble}>
+                <p className={`mb-3 ${config.loadingTextClass}`}>{config.loadingMessage}</p>
+                <div className={`flex items-center gap-2 ${config.loadingDotsWrapper}`}>
+                  <span className={`h-2.5 w-2.5 animate-bounce rounded-full ${config.loadingDot}`} />
                   <span
-                    className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent"
+                    className={`h-2.5 w-2.5 animate-bounce rounded-full ${config.loadingDot}`}
                     style={{ animationDelay: "0.15s" }}
                   />
                   <span
-                    className="h-2.5 w-2.5 animate-bounce rounded-full bg-solaris-accent"
+                    className={`h-2.5 w-2.5 animate-bounce rounded-full ${config.loadingDot}`}
                     style={{ animationDelay: "0.3s" }}
                   />
                 </div>
@@ -259,8 +336,8 @@ export function ChatWindow({ apiUrl, apiKey }: ChatWindowProps) {
         </div>
       </div>
 
-      <div className="border-t border-solaris-border/80 bg-white/80 px-6 py-5">
-        <InputBox onSend={handleSendMessage} disabled={isLoading} />
+      <div className={config.inputWrapper}>
+        <InputBox onSend={handleSendMessage} disabled={isLoading} variant={variant} />
       </div>
     </div>
   );
